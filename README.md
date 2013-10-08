@@ -23,7 +23,7 @@ have a couple of limitations which we try to address:
 1. You need to know where the file is located, so you typically put
        all support scripts in the same directory as the calling
        script. To address this we use the wrapper import functions use
-       the MODULE_PATH variable. This path will be searched to find
+       the `MODULE_PATH` variable. This path will be searched to find
        the first filename that matches the module name. Note: the
        limitation is that it means that module names must be unique.
 
@@ -44,27 +44,38 @@ modules_bootstrap.sh script to have been loaded.
 
 The rest of this readme provides details of the different modules.
 
-workspaces
+Workspaces
 ----------
 
 The workspaces module provides functions to setup and control
 workspaces. A workspace is simply a directory containing some special
-files. Workspaces are implemented by running a sub-bash shell. This
-ensures that workspaces doesn't polute each others environment spaces
-when switching between them. I'm still undecided if this approach is
-too heavy handed.
+files. Workspaces have their own setup and exit scripts as well
+maintaining their own bash history.
+
+Working within a workspace is implemented by running a sub-bash
+shell. This ensures that workspaces doesn't polute each others
+environment spaces. 
+
+Note, that this whole sub-shell thing should be reasonably transparent
+to the user and should feel like you are working in a normal
+environment. Much of the smarts of this module try to maintain this
+illusion, for example if you call "exit" it should do what you expect,
+and not simply exit the workspace sub-shell. I'm still undecided if
+this approach is too heavy handed, but so far seems to work reasonably
+well.
 
 Following are the environment variables and special files that are
 used by this module.
  
 * Special files/directories:
-  * local: In the directory that is a workspace a
-  * ./.workspace - directory is created. This directory contains:
-     * on_enter.sh  - file that is run on workspace startup
-     * on_exit.sh   - file that is run on workspace exit
-     * bash_history - use this file to maintain the bash history. 
-     * id.<NNNN>    - randomly generated unique identify for workspace.
- * ~/.workspaces - Contains symlinks to all registered workspaces
+  * `.workspace` sub-directory is created in the directory that is a workspace. 
+     This sub-directory contains:
+     * `on_enter.sh` - file that is run on workspace startup
+     * `on_exit.sh`   - file that is run on workspace exit
+     * `bash_history` - use this file to maintain the bash history. 
+     * `id.<NNNN>`    - randomly generated unique identify for workspace.
+ * `~/.workspaces` - Contains symlinks to all registered workspaces allowing 
+     for easy listing and switching betwen workspaces.
      
 * Some environment variables that may be useful
   * WORKSPACE_DIR - A workspace HOME directory.
