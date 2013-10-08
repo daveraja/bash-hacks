@@ -12,6 +12,7 @@ module is simple a shell script ending in ".sh". The name of module is
 the filename without the ending ".sh".
 
 There are two basic function to import modules:
+
         mbimport <module_name> [module_arguments]
         mbforce <module_name> [module_arguments]
 
@@ -32,7 +33,7 @@ have a couple of limitations which we try to address:
        scripts (e.g., list processing functions). You will end up
        "sourcing" the same file multiple times. To deal with this the
        provided import functions set environment variables named
-       _MB_IMPORTED_<module_name> which are then checked to see if the
+       `_MB_IMPORTED_<module_name>` which are then checked to see if the
        module has already been loaded.
 
 See the comments at the top of the modules_bootstrap.sh script for
