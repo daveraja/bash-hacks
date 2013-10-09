@@ -27,6 +27,8 @@
 #     mbimport <module_name> [module_arguments]
 #
 #     mbforce <module_name> [module_arguments]
+#
+#     mbset_MODULE_PATH <newpath>
 #     
 # A module name is restricted to the characters allowed for a bash
 # function or variable name. So stick to [a-zA-Z0-9_-] characters.
@@ -141,22 +143,13 @@ _modules_get_modulename_from_filename (){
     echo $( basename "$1" | sed -n 's/^\(.*\)\.sh$/\1/p')
 }
 
+
 #----------------------------------------------------------------------
 # Set the default MODULE_PATH to include the location of this file
 #----------------------------------------------------------------------
 _modules_set_MODULE_PATH (){
     local tf="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    if [ "$MODULE_PATH" != "" ]; then
-	for pth in $(echo $MODULE_PATH | tr ":" "\n"); do
-	    local toadd=$( _modules_clean_dirname "$pth" )
-	    if [ "$toadd" == "$tf" ]; then
-		return 0
-	    fi
-	done
-	MODULE_PATH="$MODULE_PATH":"$tf"
-    else
-	MODULE_PATH="$tf"
-    fi    
+    mbset_MODULE_PATH $tf
 }
 
 #----------------------------------------------------------------------
@@ -229,6 +222,27 @@ mbforce() {
 mbimport() {
     if _modules_is_module_loaded "$1"; then return 0; fi
     if mbforce "$@"; then return 0; else return 1; fi
+}
+
+#----------------------------------------------------------------------
+# Set the default MODULE_PATH to include the argument
+#----------------------------------------------------------------------
+mbset_MODULE_PATH (){
+    local newpath="$1"
+    if [ "$MODULE_PATH" != "" ]; then
+	for pth in $(echo $MODULE_PATH | tr ":" "\n"); do
+	    local toadd=$( _modules_clean_dirname "$pth" )
+	    if [ "$toadd" == "$newpath" ]; then
+		return 0
+	    fi
+	done
+	MODULE_PATH="$MODULE_PATH":"$newpath"
+    else
+	MODULE_PATH="$newpath"
+    fi  
+    if [ "$MODULE_NOEXPORT" != "" ] || [ "$MODULE_NOEXPORT" == "0" ]; then
+	export MODULE_PATH    
+    fi
 }
 
 
