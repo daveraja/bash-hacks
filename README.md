@@ -4,21 +4,33 @@ bash-hacks
 Some bash hacks to make life easier in bash.
 
 Basics 
-======
+------
 
-Each script is viewed as a module. Bash itself doesn't have the notion
-of modules so we implement one with the *modules_bootstrap.sh*. A module
+Introduce the ideal of a *module* as a bash script that contains
+various support functions. Since, bash itself doesn't have the notion
+of modules we implement one with the *modules_bootstrap.sh*. A module
 is simply a shell script ending in *.sh*. The name of module is the
 filename without the ending *.sh*.
 
-There are two basic functions to import modules:
+There are basic ways that to use a module, from an interactive or
+non-interactive shell. From a non-interactive shell, you want to use a
+module as part of a standalone bash script, such as a backup
+script. Alternatively, you may want to use a module to provide extra
+functionality as part of an interactive shell. 
+
+The most fundamental way to use a module is to load/import it so that
+it can used used. There are two basic functions to import modules:
 
      mbimport <module_name> [module_arguments]
      mbforce <module_name> [module_arguments]
 
-These functions provide wrappers around the the bash `source`
-command. While calling `source` on a script is simple enough it does
-have a couple of limitations which we try to address:
+The first loads the module only if it hasn't been loaded previously,
+while the second forces the module to be loaded even if it has
+previously been loaded. Both these functions provide a wrapper around
+the the bash `source` command. 
+
+While calling `source` on a script is simple enough it does have a
+couple of limitations which we try to address:
 
 1. You need to know where the file is located. Typically support
    scripts are placed in the same directory as the calling script. To
@@ -62,7 +74,7 @@ will automatically add the path that the file is in to the
 `MODULE_PATH`.
 
 Usage
-=====
+-----
 
 As an example of how to use these modules my `.bashrc` now looks something
 like the following:
@@ -86,12 +98,15 @@ like the following:
 
 
 Modules
-=======
+-------
 
 Many of the following bash-hacks modules expect the
 *modules_bootstrap.sh* script to have been loaded.
 
 The current list of available modules are:
+
+* workspaces - provides bash workspace functionality.
+* workspaces_emacs - integrates emacs into a workspace.
 
 Workspaces
 ----------
