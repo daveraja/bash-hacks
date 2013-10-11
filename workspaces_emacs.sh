@@ -122,6 +122,7 @@ export -f _wkspe_check_ws_loaded
 export -f _wkspe_run_server
 export -f _wkspe_server_isrunning
 export -f _wkspe_kill_server
+export -f _wkspe_has_frame
 export -f wkspe_shutdown
 export -f eedit
 
