@@ -295,7 +295,7 @@ _wksps_load_ws_history (){
 	_wksps_create_ws_history "$ws"
     fi
 
-    history -w      # write the current history
+#    history -w      # write the current history
     export HISTFILE="$wshistory"
     history -c      # clear history
     history -r      # read new history file
@@ -847,6 +847,29 @@ _wksps_cd () {
 #export -f _wksps_cd
 
 #---------------------------------
+# _wksps_cfg 
+# Configure the current workspace's on_enter and on_exit scripts.
+#---------------------------------
+
+_wksps_cfg (){
+    local ws="$*"
+    local wsdir="$WORKSPACE_DIR/.workspace"
+    local editor=$EDITOR    
+    if [ "$ws" == "" ] && [ "$WORKSPACE_DIR" == "" ]; then
+	echo "error: no workspace has been specified or loaded" 1>&2
+	return 1   
+    elif [ "$ws" != "" ]; then
+	if ! _wksps_is_ws "$ws" ; then
+	    echo "error: $ws is not a valid workspace" 1>&2
+	    return 1
+	fi
+	wsdir="$ws/.workspace"
+    fi
+    [ "$editor" == "" ] && editor=vi 
+    $editor $wsdir/on_enter.sh $wsdir/on_exit.sh
+}
+
+#---------------------------------
 # wksps_help ()
 # Show help information
 #---------------------------------
@@ -856,6 +879,7 @@ _wksps_help () {
     echo "Available commands:"
     echo "list         List available workspaces"
     echo "chg [NAME]   Change workspace. If NAME is omitted go to root of current workspace"
+    echo "cfg [NAME]   Configure workspace scripts. If NAME is omitted then edit configuration of current workspace"
     echo "add [NAME]   Make the named directory a workspace"
     echo "del [NAME]   Delete a workspace. This deletes the workspace link and the actual directory"
     echo "unload       Unloaded the currently active workspace"
@@ -973,9 +997,9 @@ _wksps_wksp_autocomplete () {
     cmd="${COMP_WORDS[1]}"
     suggestions=""
     if [ $COMP_CWORD -eq 1 ]; then
-	suggestions="chg add del list unload load_if cleanup help ls cd"
+	suggestions="chg cfg add del list unload load_if cleanup help ls cd"
     elif [ $COMP_CWORD -eq 2 ]; then
-	if [ "$cmd" == "chg" ] || [ "$cmd" == "del" ]; then
+	if [ "$cmd" == "chg" ] || [ "$cmd" == "del" ] || [ "$cmd" == "cfg" ]; then
 	    suggestions=$(_wksps_completion_list "$cur")
 	elif [ "$cmd" == "add" ]; then
 	    suggestions=$(ls)
@@ -1089,6 +1113,8 @@ wksp () {
 	_wksps_load_if $(_wksps_args 2 "$@")
     elif [ "$cmd" == "cleanup" ]; then    # Makes sure all workspaces are valid
 	_wksps_cleanup
+    elif [ "$cmd" == "cfg" ]; then    # Configure the workspace
+	_wksps_cfg $(_wksps_args 2 "$@")
     elif [ "$cmd" == "ls" ]; then    # Workspace relative ls
 	_wksps_ls $(_wksps_args 2 "$@")
     elif [ "$cmd" == "cd" ]; then    # Workspace relative cd
