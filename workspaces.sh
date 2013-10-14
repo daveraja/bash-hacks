@@ -75,7 +75,9 @@ _wksps_init (){
 #------------------------------
 
 _wksps_get_abs_name (){
-    local absws=$(readlink -m "$*")
+    local cleaned=$(echo "$*" | sed -e 's!^~\(.*\)$!'"$HOME"'/\1!')
+#    local absws=$(readlink -m "$*")
+    local absws=$(readlink -m "$cleaned")
     echo "$absws"
 }
 #export -f _wksps_get_abs_name
@@ -662,6 +664,63 @@ _wksps_mk (){
 }
 #export -f _wksps_mk
 
+
+#-------------------------------
+# _wksps_isnumber
+#-------------------------------
+_wksps_isnumber() { 
+    printf '%f' "$1" &> /dev/null
+}
+
+#-------------------------------
+# _wksps_selws_prompt
+# Prompt the user to select a workspace from a list
+#-------------------------------
+
+_wksps_selws_prompt (){
+    local wrksps_u=()
+    local wrksps_s=()
+    local tmpi
+    local prompt="$@"
+    for fn in ~/.workspaces/*; do
+	if [ -h "$fn" ]; then
+	    wrksps_u[${#wrksps_u[@]}]=$(_wksps_get_tilda_name $(readlink "$fn"))
+	fi
+    done
+    for fn in $(for i in ${wrksps_u[@]}; do echo "$i"; done | sort) ; do
+	tmpi=$(( ${#wrksps_s[@]} + 1))
+	wrksps_s[${#wrksps_s[@]}]=$fn
+	echo "$tmpi) $fn" 1>&2
+    done
+    read -p "$@" answr
+    if ! _wksps_isnumber $answr; then
+	echo "error: not a number: $answr" 1>&2
+	echo ""
+    elif [ $answr -gt 0 ] && [ $answr -le ${#wrksps_s[@]} ]; then
+	tmpi=$(( $answr - 1 ))
+	echo "${wrksps_s[$tmpi]}"
+    else
+	echo "error: out of range selection: $answr" 1>&2
+	echo ""
+    fi    
+}
+
+
+#-------------------------------
+# _wksps_chgws_prompt
+# Prompt the user to select a workspace from a list then
+# change to that workspace.
+#-------------------------------
+_wksps_chgws_prompt (){
+    local res=""
+    while [ "$res" == "" ]; do
+	res=$(_wksps_selws_prompt "Select workspace: ")
+    done
+    res=$(_wksps_get_abs_name "$res")
+    _wksps_chgws "$res"
+}
+
+
 #-------------------------------
 # _wksps_mk_prompt <directory>
 # Prompts the user to create a workspace in a directory, then
@@ -710,8 +769,10 @@ _wksps_chgws () {
    # No arguments
     if [ $# -eq 0 ]; then
 	if [ "$WORKSPACE_DIR" == "" ]; then
-	    echo "WORKSPACE_DIR is not set" 1>&2
-	    return 1
+	    _wksps_chgws_prompt
+	    return 0
+#	    echo "WORKSPACE_DIR is not set" 1>&2
+#	    return 1
 	fi
 	builtin cd "$WORKSPACE_DIR"	
 	return
@@ -879,6 +940,7 @@ _wksps_help () {
     echo "Available commands:"
     echo "list         List available workspaces"
     echo "chg [NAME]   Change workspace. If NAME is omitted go to root of current workspace"
+    echo "sel          Change workspace by selecting from a list"
     echo "cfg [NAME]   Configure workspace scripts. If NAME is omitted then edit configuration of current workspace"
     echo "add [NAME]   Make the named directory a workspace"
     echo "del [NAME]   Delete a workspace. This deletes the workspace link and the actual directory"
@@ -997,7 +1059,7 @@ _wksps_wksp_autocomplete () {
     cmd="${COMP_WORDS[1]}"
     suggestions=""
     if [ $COMP_CWORD -eq 1 ]; then
-	suggestions="chg cfg add del list unload load_if cleanup help ls cd"
+	suggestions="chg sel cfg add del list unload load_if cleanup help ls cd"
     elif [ $COMP_CWORD -eq 2 ]; then
 	if [ "$cmd" == "chg" ] || [ "$cmd" == "del" ] || [ "$cmd" == "cfg" ]; then
 	    suggestions=$(_wksps_completion_list "$cur")
@@ -1101,6 +1163,8 @@ wksp () {
 
     if [ "$cmd" == "chg" ]; then         # Change workspace
 	_wksps_chgws $(_wksps_args 2 "$@")
+    elif [ "$cmd" == "sel" ]; then         # Select workspace from prompt
+	_wksps_chgws_prompt
     elif [ "$cmd" == "add" ]; then       # Make workspace
 	_wksps_mk_prompt $(_wksps_args 2 "$@")
     elif [ "$cmd" == "del" ]; then       # Remove workspaces
