@@ -24,6 +24,10 @@
 # - WORKSPACE_TMPFILE - A temporary file for starting and cleaning up 
 #                       stacked workspace.
 # - WORKSPACE_BASH_ROOT_PID - The PID of the workspace root. 
+# - WORKSPACES_HOOK_ON_ENTER - An array of handlers to be called 
+#                              before on_enter.sh is run.
+# - WORKSPACES_HOOK_ON_EXIT - An array of handlers to be called
+#                             after on_exit.sh has been run.
 #
 # The idea is to maintain symlinks to workspaces so that we can 
 # quickly list and go to them using tab completion.
@@ -34,6 +38,13 @@
 # 3) wsls - shortcut for "wksp ls". "ls" relative to WORKSPACE_DIR.
 # 4) wscd - shortcut for "wksp cd". "cd" relative to WORKSPACE_DIR.
 #
+#
+# Workspaces allow for a simple extension mechanism. An extension
+# module can call the wksps_hook_on_enter() and wksps_hook_on_exit()
+# functions to setup handlers that are then called before 
+# on_enter.sh and after on_exit.sh respectively. Note: once an 
+# extension has been attached, it cannot be detached.
+
 # Prerequisites: assumes readlink and sed are installed.
 #
 # Bug/clean-up notes:
@@ -329,12 +340,7 @@ _wksps_create_ws_scripts (){
 # number of active base shells for this workspace. This is useful 
 # if you want to run a program (eg., some background daemon) to be
 # shared by all instances of the workspace.
-
 local npids=\$(wksps_num_active_pids)
-
-#if [ \$npids -eq 1 ]; then
-#    echo "Initilisation of common components"
-#fi
 echo "Setting up workspace[\$npids]..."
 EOF
     fi
@@ -349,6 +355,10 @@ EOF
 #       2) The "wksps_num_active_pids" returns the number of active shells
 #          not including this one. So if this is cleaning up the last active
 #          shell for the workspace then "wksps_num_active_pids" will return 0.
+local npids=\$(wksps_num_active_pids)
+if [ $npids -eq 0 ]; then
+   echo "Cleaning up workspace..."
+fi
 EOF
     fi
 
@@ -483,6 +493,11 @@ _wksps_load_ws (){
     _wksps_load_ws_id "$absws"
     _wksps_load_ws_history "$absws"
 
+    # Run the workspaces on_enter hooks
+    for hook in "${WORKSPACES_HOOK_ON_ENTER[@]}"; do
+	eval "$hook"
+    done
+
     # Call the user on_enter script
     _wksps_load_ws_on_enter_script "$absws"
 }
@@ -599,6 +614,12 @@ _wksps_push () {
     if [ -f "$newws/.workspace/on_exit.sh" ]; then
 	source "$newws/.workspace/on_exit.sh"
     fi
+    
+    # Finally run any extension hooks
+    for hook in "${WORKSPACES_HOOK_ON_EXIT[@]}"; do
+	eval "$hook"
+    done
+
 
     # Recover from the 
     unset WORKSPACE_ID
@@ -1155,6 +1176,39 @@ wksps_num_active_pids ()
 #export -f wksps_num_active_pids
 
 #-------------------------------
+# wksps_hook_on_enter (<function name>) - register the function
+# as a handler to be called before on_enter.sh is called for a
+# workspace.
+#-------------------------------
+
+wksps_hook_on_enter ()
+{
+    local hookname="$1"
+    if [ "$(declare -F $hookname)" == "" ]; then
+	echo "error: invalid function callback: $hookname" 1>&2
+	return 1
+    fi
+    WORKSPACES_HOOK_ON_ENTER[${#WORKSPACES_HOOK_ON_ENTER[@]}]=$hookname
+}
+
+#-------------------------------
+# wksps_hook_on_exit (<function name>) - register the function
+# as a handler to be called after on_exit.sh is called for a
+# workspace.
+#-------------------------------
+
+wksps_hook_on_exit ()
+{
+    local hookname="$1"
+    if [ "$(declare -F $hookname)" == "" ]; then
+	echo "error: invalid function callback: $hookname" 1>&2
+	return 1
+    fi
+    WORKSPACES_HOOK_ON_EXIT[${#WORKSPACES_HOOK_ON_EXIT[@]}]=$hookname
+}
+
+
+#-------------------------------
 # wksp () [cw|push|pop] <arg>
 #-------------------------------
 wksp () {
@@ -1217,6 +1271,15 @@ wscd () {
     _wksps_cd "$@"
 }
 #export -f wscd
+
+
+#---------------------------------------------------------------
+# Main - initialisation
+#---------------------------------------------------------------
+
+declare -a WORKSPACES_HOOK_ON_ENTER
+declare -a WORKSPACES_HOOK_ON_EXIT
+
 
 #---------------------------------------------------------------
 # Register the completion functions

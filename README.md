@@ -117,7 +117,7 @@ some special files. Workspaces have their own setup and exit scripts
 as well maintaining their own bash history.
 
 Working within a workspace is implemented by running a sub-bash
-shell. This ensures that workspaces doesn't polute each others
+shell. This ensures that workspaces don't polute each others
 environment spaces. 
 
 Note, that this whole sub-shell thing should be reasonably transparent
@@ -130,8 +130,17 @@ shell. Hence, the workspace functions will actually end up calling
 shell. I'm still undecided if this approach is too heavy handed, but
 so far it seems to work reasonably well.
 
-Following are the environment variables and special files that are
-used by this module.
+Workspaces use a simple extension concept where other modules can
+register hooks (ie. functions) that are run on entering and exiting
+workspaces.  `workspaces_emacs` is such an extension that integrates
+named emacs servers for each workspace. It registers an on_enter hook
+that is run on entering a workspace and sets up the `EDITOR` environment
+variable to use the wkspe_emacsclient function. It also registers an
+on_exit hook that is run on exiting a workspace and checks to see if
+is the last running instance of that workspace and if so will make
+sure the emacs server for that workspace is shutdown.
+
+Following are the special files that are used by this module.
  
 * Special files/directories:
   * `.workspace` - this sub-directory is created in the directory that is a workspace. 

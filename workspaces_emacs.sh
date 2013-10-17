@@ -6,8 +6,8 @@
 # emacs server. When all instances of a workspace are shutdown the
 # associated emacs server is also shutdown.
 # 
-# Connecting to a workspace's emacs server is simple using the "eedit"
-# function. 
+# workspaces_emacs registers itself with the workspaces on_exit hook so
+# that the shutdown check is always checked on exiting a workspace.
 #
 # Note on hackiness: I don't know how portable any of this is across 
 # other platforms.
@@ -28,10 +28,8 @@
 # there are "active clients". Searching google there are various discussions 
 # on what this means and how to get around it. Need to look into it.
 #
-# wkspe_shutdown is best called from the workspace's on_exit.sh script.
-#
 #-------------------------------------------------------------------------
-
+mbimport workspaces
 
 #------------------------------
 # returns true if a workspace is loaded and false otherwise. If false 
@@ -87,7 +85,10 @@ _wkspe_kill_server(){
 # Intelligently shutdown the workspace emacs server (if it is running).
 #------------------------------
 wkspe_shutdown(){
-    ! _wkspe_check_ws_loaded && return 0
+    if [ "$WORKSPACE_ID" == "" ]; then
+	echo "error: cannot shutdown emacs workspace server as no workspace is currently loaded"
+	return 1
+    fi
     ! _wkspe_server_isrunning && return 0
     if _wkspe_has_frame; then
 	emacsclient -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
@@ -99,10 +100,36 @@ wkspe_shutdown(){
 }
 
 #------------------------------
+# On exit of every workspace call this function.  If there are no more
+# workspaces shells running then shutdown the workspace emacs server
+# (if it is running).
+#------------------------------
+wkspe_on_exit(){
+    # if no more active pids for the current workspace 
+    # then shutdown emacs server.
+    local npids=$(wksps_num_active_pids)
+    if [ $npids -eq 0 ] && _wkspe_server_isrunning ; then
+	echo "Shutting down emacs server for workspace..."
+	wkspe_shutdown 
+    fi 
+}
+
+#------------------------------
+# On enter of every workspace call this function. Simply
+# sets up the EDITOR variable.
+#------------------------------
+wkspe_on_enter(){
+    export EDITOR=wkspe_emacsclient
+}
+
+#------------------------------
 # My emacs edit command
 #------------------------------
-eedit(){
-    ! _wkspe_check_ws_loaded && return 1
+wkspe_emacsclient(){
+    if [ "$WORKSPACE_ID" == "" ]; then
+	echo "error: cannot run emacs workspace server as no workspace is currently loaded"
+	return 1
+    fi
     ! _wkspe_server_isrunning && _wkspe_run_server
     if ! _wkspe_server_isrunning; then
 	echo "error: failed to run emacs server"
@@ -117,6 +144,13 @@ eedit(){
     fi
 }
 
+#-----------------------------------------------------------------------
+# Main - Setup the workspace callback for on_enter and on_exit. 
+#-----------------------------------------------------------------------
+
+wksps_hook_on_enter "wkspe_on_enter"
+wksps_hook_on_exit "wkspe_on_exit"
+
 
 export -f _wkspe_check_ws_loaded
 export -f _wkspe_run_server
@@ -124,5 +158,5 @@ export -f _wkspe_server_isrunning
 export -f _wkspe_kill_server
 export -f _wkspe_has_frame
 export -f wkspe_shutdown
-export -f eedit
+export -f wkspe_emacsclient
 
