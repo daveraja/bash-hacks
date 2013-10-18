@@ -356,7 +356,7 @@ EOF
 #          not including this one. So if this is cleaning up the last active
 #          shell for the workspace then "wksps_num_active_pids" will return 0.
 local npids=\$(wksps_num_active_pids)
-if [ $npids -eq 0 ]; then
+if [ \$npids -eq 0 ]; then
    echo "Cleaning up workspace..."
 fi
 EOF
