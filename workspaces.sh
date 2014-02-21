@@ -61,7 +61,7 @@
 #    setup, otherwise things like coloring of entries won't work. Should
 #    be possible to do this properly.
 #----------------------------------------------------------------------
-
+mbimport prompts
 
 #-----------------------------------------------------------------------
 # Generic internal functions
@@ -427,9 +427,9 @@ _wksps_has_ws_link (){
 
 #-------------------------------
 # _wksps_is_ws <directory>
-# returns 1 if the directory is a workspace
+# returns 0 if the directory is a workspace
 # (ie., has a .workspace.sh and workspace id file, and a ws link)
-# or 0 otherwise.
+# or 1 otherwise.
 #-------------------------------
 _wksps_is_ws (){
     local ws="$*"
@@ -867,17 +867,28 @@ _wksps_delws () {
 #export -f _wksps_delws
 
 #---------------------------------
-# wksps_load_if_ws ()
+# wksps_load_if ()
 # Checks if no workspace is active and the current directory 
-# is a workspace. If so calls wspush to load the new workspace.
+# is a workspace. If so then by default calls wspush to load the new 
+# workspace, or optionally (the "-p" option) prompts the user.
 #---------------------------------
 _wksps_load_if () {
     local currdir=$(pwd)
     [ ! -z "$WORKSPACE_ID" ] && return
-
-     if _wksps_is_ws "$currdir" ; then
-	 _wksps_push "$currdir"
-     fi   
+    local options="$*" 
+    if ! _wksps_is_ws "$currdir" ; then return 0; fi
+    
+    if [ "$options" != "-p" ] && [ "$options" != "" ]; then
+	echo "error: Invalid options '$options' for load_if"
+	return 1
+    fi
+    # prompt if we really want to load the workspace
+    if [ "$options" == "-p" ]; then
+	echo "Current directory: $currdir"
+	local res=$(prompt_yesno "Load workspace in this directory (Y/n)" y)
+	[ "$res" == "n" ] && return 0	
+    fi 
+    _wksps_push "$currdir"
 }
 #export -f _wksps_load_if
 
@@ -956,20 +967,21 @@ _wksps_cfg (){
 # Show help information
 #---------------------------------
 _wksps_help () {
-    echo "Usage: $1 [COMMAND]"
+    echo "Usage: $1 <COMMAND>"
     echo
     echo "Available commands:"
-    echo "list         List available workspaces"
-    echo "chg [NAME]   Change workspace. If NAME is omitted go to root of current workspace"
-    echo "sel          Change workspace by selecting from a list"
-    echo "cfg [NAME]   Configure workspace scripts. If NAME is omitted then edit configuration of current workspace"
-    echo "add [NAME]   Make the named directory a workspace"
-    echo "del [NAME]   Delete a workspace. This deletes the workspace link and the actual directory"
-    echo "unload       Unloaded the currently active workspace"
-    echo "load_if      If the current directory is a workspace then load it (useful for shell startup)"
-    echo "cleanup      Remove stale links to workspaces"
-    echo "ls | cd      Workspace relative ls and cd operators"
-    echo "help         this help information"
+    echo "list             List available workspaces."
+    echo "chg [NAME]       Change workspace. If NAME is omitted go to root of current workspace."
+    echo "sel              Change workspace by selecting from a list."
+    echo "cfg [NAME]       Configure workspace scripts. If NAME is omitted then edit configuration of current workspace."
+    echo "add [NAME]       Make the named directory a workspace."
+    echo "del [NAME]       Delete a workspace. This deletes the workspace link and the actual directory."
+    echo "unload           Unloaded the currently active workspace."
+    echo "load_if [-p]     If the current directory is a workspace then load it. If the option -p is supplied"
+    echo "                 then the user is prompted whether to load the workspace (useful for shell startup)."
+    echo "cleanup          Remove stale links to workspaces."
+    echo "ls | cd          Workspace relative ls and cd operators."
+    echo "help             this help information."
 }
 #export -f _wksps_help
 

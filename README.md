@@ -105,6 +105,7 @@ Many of the following bash-hacks modules expect the
 
 The current list of available modules are:
 
+* prompts - provides simple prompts (currently only yes/no)
 * workspaces - provides bash workspace functionality.
 * workspaces_emacs - integrates emacs into a workspace.
 
