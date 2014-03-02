@@ -15,6 +15,8 @@
 #     - on_exit.sh   - file that is run on workspace exit
 #     - bash_history - use this file to maintain the bash history. 
 #     - id.<NNNN>    - randomly generated unique identify for workspace.
+#     - pids.tmp     - temporary file containing process id of active 
+#                      workspace shells.
 # - ~/.workspaces - Contains symlinks to all registered workspaces
 #     
 # Environment variables that are used.
@@ -181,6 +183,17 @@ _wksps_get_ws_id (){
 }
 #export -f _wksps_get_ws_id
 
+_wksps_get_ws_pidsfile (){
+    local ws="$*"
+    local pidsfile
+#    local id
+#    id=$(ls "$ws"/.workspace/id.* 2>/dev/null | head -n 1 | sed -n 's/^.*\.workspace\/id\.\(.*\)$/\1/p')
+#   echo "$ws/.workspace/id.$id"
+    echo "$ws/.workspace/pids.tmp"
+}
+#export -f _wksps_get_ws_id
+
+
 _wksps_create_ws_id (){
     local ws="$*"
     local id
@@ -222,14 +235,13 @@ _wksps_load_ws_id (){
 _wksps_cleanup_inactive_pids (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$ws")
-    local id=$(_wksps_get_ws_id "$absws")
-    local idfile="$absws/.workspace/id.$WORKSPACE_ID"
+    local pidsfile=$(_wksps_get_ws_pidsfile "$absws")
     local activelist=()
     local pid
 
-    if [ ! -f "$idfile" ]; then
-	echo "error: missing workspace id file: $idfile"
-	return 1
+    if [ ! -f "$pidsfile" ]; then
+	touch "$pidsfile"
+	return 0
     fi
 
     while read pid; do
@@ -239,13 +251,16 @@ _wksps_cleanup_inactive_pids (){
 		activelist[${#activelist[*]}]=$pid
 	    fi
 	fi
-    done < "$idfile"
+    done < "$pidsfile"
 
     # Now writeout the active list
-    > "$idfile"
+    > "$pidsfile"
     for pid in "${activelist[@]}"; do
-	echo $pid >> "$idfile"
+	echo $pid >> "$pidsfile"
     done
+
+    # If the file is empty then remove it
+    [ ! -s "$pidsfile" ] && rm "$pidsfile"
 }
 #export -f _wksps_cleanup_inactive_pids
 
@@ -259,21 +274,20 @@ _wksps_num_active_pids ()
 {
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$ws")
-    local id=$(_wksps_get_ws_id "$absws")
-    local idfile="$absws/.workspace/id.$WORKSPACE_ID"
+    local pidsfile=$(_wksps_get_ws_pidsfile "$absws")
     local activelist=()
     local pid
 
-    if [ ! -f "$idfile" ]; then
-	echo "error: missing workspace id file: $idfile"
-	return 1
+    if [ ! -f "$pidsfile" ]; then
+	echo "0"
+	return 0
     fi
 
     while read pid; do
 	if [[ $pid =~ [0-9]+ ]]; then
 	    activelist[${#activelist[*]}]=$pid
 	fi
-    done < "$idfile"
+    done < "$pidsfile"
     echo "${#activelist[*]}"
 }
 #export -f _wksps_num_active_pids
@@ -471,6 +485,7 @@ _wksps_in_ws (){
 _wksps_load_ws (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$*")
+    local pidsfile=$(_wksps_get_ws_pidsfile "$absws")
 
     if ! _wksps_is_ws "$absws" ; then
 	echo "error: not a workspace: $ws"
@@ -487,7 +502,7 @@ _wksps_load_ws (){
     export WORKSPACE_DIR="$absws"
 
     # Add the current workspace bash shell to the active PID list
-    echo "$WORKSPACE_BASH_ROOT_PID" >> "$absws/.workspace/id.$WORKSPACE_ID"
+    echo "$WORKSPACE_BASH_ROOT_PID" >> "$pidsfile"
 
     # Set things up
     _wksps_load_ws_id "$absws"
@@ -607,7 +622,6 @@ _wksps_push () {
     fi
     
     # Remove the PID from the active list in the workspace id file
-#    sed -i '/'"$WORKSPACE_BASH_ROOT_PID"'/d' "$newws/.workspace/id.$WORKSPACE_ID"
     _wksps_cleanup_inactive_pids "$newws"
 
     # Now run the on_exit script
