@@ -40,11 +40,12 @@ limitations, which the module commands try to address:
    script containing general utility functions that are used across
    many scripts (e.g., list processing functions), you may end up
    "sourcing" the same file multiple times. To deal with this the
-   import functions an set environment variable named
-   `_MB_IMPORTED_<module_name>`. This variable is checked to see if
-   the module has already been loaded and to act accordingly. For
-   `mbforce` the file is reloaded regardless, while for `mbimport` the
-   file will be loaded only if it hasn't previously been loaded.
+   import functions set an environment variable named
+   `_MB_IMPORTED_<module_name>` that is used to check module has
+   already been loaded. The `mbimport` loads a module only once even
+   if the function has been called multiple times. On the other hand
+   `mbforce` reloads a module regardless of whether it has been
+   previously loaded. 
 
 3. On exporting. The ability to export variables and functions so that
    they can be inherited by sub-processes complicates things
