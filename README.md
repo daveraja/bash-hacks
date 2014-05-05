@@ -1,20 +1,19 @@
 bash-hacks
 ===========
 
-Some hacks to make life easier in bash. Firstly, defines a shell
-script that implements a simple notion of *modules*. Then, provides
-some standard modules.
+Some hacks to make life easier in bash. The first hack is to provide a
+script that implements a simple notion of *modules*. This is then used
+to provide useful user modules.
 
 Module boostrapping 
 -------------------
 
-Provides some bash *modules* containing various support
-functions. Since, bash itself doesn't have a built-in notion of
-modules a simple one with provided by *modules_bootstrap.sh*. A module
-is simply a shell script ending in *.sh*. The name of module is the
-filename without the ending *.sh*.
+Since, bash itself doesn't have a built-in notion of modules a simple
+one is provided by *modules_bootstrap.sh*. A module is simply a shell
+script ending in *.sh*. The name of module is the filename without the
+ending *.sh*.
 
-To usea module it needs to be loaded (imported). There are two basic
+To use a module it needs to be loaded (imported). There are two basic
 functions to import modules:
 
      mbimport <module_name> [module_arguments]
@@ -23,10 +22,10 @@ functions to import modules:
 The first loads the module only if it hasn't been loaded previously,
 while the second forces the module to be loaded even if it has
 previously been loaded. Both these functions provide a wrapper around
-the the bash `source` command. 
+the bash `source` command. 
 
-While calling `source` on a script is simple enough it does have a
-couple of limitations which the the module commands try to address:
+While calling `source` on a script is simple enough it does have a few
+limitations, which the module commands try to address:
 
 1. You need to know where the file is located. Typically support
    scripts are placed in the same directory as the calling script. To
@@ -82,15 +81,18 @@ like the following:
     # add my local (computer specific) modules to the MODULE_PATH    
     mbset_MODULE_PATH $HOME/.bash.d
 
-    # Import various modules
+    # Import various modules - mostly just to setup my operating environment.
     mbimport misc
-    mbimport java
-    mbimport local
-    mbimport proxy
 
     # Aliases and completions are not inherited so force import every time.
     mbforce terminal
-    mbforce workspaces
+
+    # Provide useful workspace emacs function - note: this first loads
+    # the workspaces module which provides workspace functions in bash.
+    mbimport workspaces_emacs
+    
+    # Workspaces function to load a workspace from the current directory.
+    wksp load_if -p
 
 
 Modules
