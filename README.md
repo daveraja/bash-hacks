@@ -1,7 +1,7 @@
 bash-hacks
 ===========
 
-Some bash hacks to make life easier in bash. Firstly, defines a shell
+Some hacks to make life easier in bash. Firstly, defines a shell
 script that implements a simple notion of *modules*. Then, provides
 some standard modules.
 
