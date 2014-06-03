@@ -102,9 +102,10 @@ Modules
 The following defines some useful modules. The current list of
 available modules are:
 
-* prompts - provides simple prompts (currently only yes/no)
 * workspaces - provides bash workspace functionality.
 * workspaces_emacs - integrates emacs into a workspace.
+* prompts - provides simple prompts (currently only yes/no)
+* misc_functions - some miscellaneous functions.
 
 Workspaces
 ----------
@@ -168,3 +169,26 @@ Main user callable command functions:
                      loading workspaces.
   * `wsls [file]` - shortcut for "wksp ls". "ls" relative to `WORKSPACE_DIR`.
   * `wscd [directory]` - shortcut for "wksp cd". "cd" relative to `WORKSPACE_DIR`.
+
+
+Miscellaneous Functions
+-----------------------
+
+These functions echo their result so should be called with the $(...)
+pattern.
+
+Append to a string list (with some separator character). Useful for
+adding to environment variables (e.g, PATH). If the first element is
+empty then it simply returns the second element and no concatenation
+occurs. This avoids creating lists with empty separators. 
+
+* mf_append: Simplest version of append. Example usage: 
+
+  	     PATH=$(mf_append $PATH "append-path")
+
+* mf_cond_append: Conditional append. If the append string is already
+  an element of the list the no append occurs. This is a bit more
+  works as it has to first split the string list into its component
+  parts. Useful for adding to a path where you are not sure if the
+  item is already in the path.
+
