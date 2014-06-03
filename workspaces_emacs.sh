@@ -13,16 +13,17 @@
 # other platforms.
 #
 # Some issues:
-# The emacsclient -a ""  doesn't seem to behave the way I would expect 
-# a server name is specified. For example, I want to run a command like:
+# The emacsclient -a "" doesn't seem to behave the way I would expect
+# when a server name is specified. For example, I want to run a
+# command like:
 #
 #    emacsclient -c -n -a "" -s myserver
 # 
-# What I would expect this to do is to try and connect to the emacs server
-# daemon named "myserver" and if it is not running spawn a server with that
-# name and connect to it. Instead, if the server is not running it spawns 
-# a randomly named server and then fails to connect it because it has the
-# wrong name.
+# What I would expect this to do is to try and connect to the emacs
+# server daemon named "myserver" and if it is not running spawn a
+# server with that name and connect to it. Instead, if the server is
+# not running it spawns a randomly named server and then fails to
+# connect to it because it has the wrong name.
 #
 # The wkspe_shutdown function needs work. It always prompts the user that
 # there are "active clients". Searching google there are various discussions 
@@ -144,6 +145,26 @@ wkspe_emacsclient(){
     fi
 }
 
+#------------------------------
+# My emacs edit command that is terminal only
+#------------------------------
+wkspe_emacsclient_nw(){
+    if [ "$WORKSPACE_ID" == "" ]; then
+	echo "error: cannot run emacs workspace server as no workspace is currently loaded"
+	return 1
+    fi
+    ! _wkspe_server_isrunning && _wkspe_run_server
+    if ! _wkspe_server_isrunning; then
+	echo "error: failed to run emacs server"
+	return 1
+    fi
+    if _wkspe_has_frame; then
+	emacsclient -n -s "$WORKSPACE_ID" $@
+    else
+	emacsclient -c -n -s "$WORKSPACE_ID" $@
+    fi
+}
+
 #-----------------------------------------------------------------------
 # Main - Setup the workspace callback for on_enter and on_exit. 
 #-----------------------------------------------------------------------
@@ -159,4 +180,5 @@ export -f _wkspe_kill_server
 export -f _wkspe_has_frame
 export -f wkspe_shutdown
 export -f wkspe_emacsclient
+export -f wkspe_emacsclient_nw
 
