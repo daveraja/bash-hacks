@@ -1106,7 +1106,7 @@ _wksps_wksp_autocomplete () {
     cmd="${COMP_WORDS[1]}"
     suggestions=""
     if [ $COMP_CWORD -eq 1 ]; then
-	suggestions="chg sel cfg add del list unload load_if cleanup help ls cd"
+	suggestions="chg sel cfg add del list load unload load_if cleanup help ls cd"
     elif [ $COMP_CWORD -eq 2 ]; then
 	if [ "$cmd" == "chg" ] || [ "$cmd" == "del" ] || [ "$cmd" == "cfg" ]; then
 	    suggestions=$(_wksps_completion_list "$cur")
@@ -1243,7 +1243,7 @@ wksp () {
 
     if [ "$cmd" == "chg" ]; then         # Change workspace
 	_wksps_chgws $(_wksps_args 2 "$@")
-    elif [ "$cmd" == "sel" ]; then         # Select workspace from prompt
+    elif [ "$cmd" == "sel" ] || [ "$cmd" == "load" ]; then  # Select workspace from prompt
 	_wksps_chgws_prompt
     elif [ "$cmd" == "add" ]; then       # Make workspace
 	_wksps_mk_prompt $(_wksps_args 2 "$@")
