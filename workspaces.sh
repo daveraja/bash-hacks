@@ -682,6 +682,29 @@ _wksps_pop () {
 #export -f _wksps_pop
 
 #-------------------------------
+# wksps_reload 
+# Reload a workspace
+#-------------------------------
+_wksps_reload () {
+    if [ "$WORKSPACE_DIR" == "" ]; then
+	echo "No workspace loaded" 1>&2
+	return 1
+    fi
+
+    # Can only switch workspaces from the workspace bash root
+    if [ $WORKSPACE_BASH_ROOT_PID != $$ ]; then
+	echo "cannot reload workspace: unable to unload workspace from a workspace sub-shell"
+	return 1
+    fi
+    echo "Reloading workspace..." 1>&2 
+    # Reload workspace means exiting the current shell also but setting up so
+    # the parent shell will re-startup the workspace.
+    _wksps_set_ws_cleanup_fn "_wksps_push \"$WORKSPACE_DIR"\" 
+    builtin exit &>/dev/null
+    return 0
+}
+
+#-------------------------------
 # wksps_mk ()  - make a workspace
 #-------------------------------
 _wksps_mk (){
@@ -991,6 +1014,7 @@ _wksps_help () {
     echo "add [NAME]       Make the named directory a workspace."
     echo "del [NAME]       Delete a workspace. This deletes the workspace link and the actual directory."
     echo "unload           Unloaded the currently active workspace."
+    echo "reload           Reload the currently active workspace. Useful when the configuration has changed."
     echo "load_if [-p]     If the current directory is a workspace then load it. If the option -p is supplied"
     echo "                 then the user is prompted whether to load the workspace (useful for shell startup)."
     echo "cleanup          Remove stale links to workspaces."
@@ -1106,7 +1130,7 @@ _wksps_wksp_autocomplete () {
     cmd="${COMP_WORDS[1]}"
     suggestions=""
     if [ $COMP_CWORD -eq 1 ]; then
-	suggestions="chg sel cfg add del list load unload load_if cleanup help ls cd"
+	suggestions="chg sel cfg add del list load unload reload load_if cleanup help ls cd"
     elif [ $COMP_CWORD -eq 2 ]; then
 	if [ "$cmd" == "chg" ] || [ "$cmd" == "del" ] || [ "$cmd" == "cfg" ]; then
 	    suggestions=$(_wksps_completion_list "$cur")
@@ -1253,6 +1277,8 @@ wksp () {
 	_wksps_listws $(_wksps_args 2 "$@")
     elif [ "$cmd" == "unload" ]; then  # Unload the current workspace
 	_wksps_pop $(_wksps_args 2 "$@")
+    elif [ "$cmd" == "reload" ]; then  # Reload the current workspace
+	_wksps_reload $(_wksps_args 2 "$@")
     elif [ "$cmd" == "load_if" ]; then  # If curr dir is workspace then load it
 	_wksps_load_if $(_wksps_args 2 "$@")
     elif [ "$cmd" == "cleanup" ]; then    # Makes sure all workspaces are valid
