@@ -50,8 +50,11 @@ _wkspe_check_ws_loaded(){
 # a bug or a property of the emacs server?
 #------------------------------
 _wkspe_has_frame(){
-    local res=$(emacsclient -s "$WORKSPACE_ID" -e '(let ((nfrms (length (frame-list)))) (if (eq nfrms 1) (message "NO")))' 2>&1)
-    [ "$res" == "" ]
+    local res=$(emacsclient -s "$WORKSPACE_ID" -e '(let ((nfrms (length (frame-list)))) (if (<= nfrms 1) (message "NO")))' 2>&1)
+    if [[ "$res" =~ "NO" ]]; then
+	return 1
+    fi
+    return 0
 }
 
 #------------------------------
