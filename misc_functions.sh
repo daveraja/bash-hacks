@@ -83,7 +83,7 @@ mf_user_loggedin () {
 	return 1
     fi
 
-    local matched=$(who | awk '{print $1}' | uniq | grep "$user")
+    local matched=$(who | awk '{print $1}' | sort | uniq | grep "$user")
     if [ "$matched" == "$user" ]; then
 	return 0
     fi
