@@ -175,8 +175,8 @@ Main user callable command functions:
 Miscellaneous Functions
 -----------------------
 
-These functions echo their result so should be called with the $(...)
-pattern.
+Most of these functions "echo" their result so should be called with the
+$(...)  pattern.
 
 Append to a string list (with some separator character). Useful for
 adding to environment variables (e.g, PATH). If the first element is
@@ -193,3 +193,10 @@ occurs. This avoids creating lists with empty separators.
   parts. Useful for adding to a path where you are not sure if the
   item is already in the path.
 
+Other function:
+
+* mf_which <program>: a wrapper around the "which" function that
+  simply returns an empty string if there is no such program.
+
+* mf_user_loggedin <username>: returns 0 (true) if the user is logged
+  in and 1 (false) otherwise.

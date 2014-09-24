@@ -71,3 +71,21 @@ mf_which () {
 }
 
 
+#----------------------------------------------------------------------
+# mf_user_loggedin <username>
+#
+# Returns 0 (true) if the user is logged in and 1 (false) otherwise.
+#----------------------------------------------------------------------
+mf_user_loggedin () {
+    local user="$1"
+    if [ "$user" == "" ]; then
+	echo "$FUNCNAME: No user specified"
+	return 1
+    fi
+
+    local matched=$(who | awk '{print $1}' | uniq | grep "$user")
+    if [ "$matched" == "$user" ]; then
+	return 0
+    fi
+    return 1
+}
