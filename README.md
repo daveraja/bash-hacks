@@ -105,6 +105,7 @@ available modules are:
 * workspaces - provides bash workspace functionality.
 * workspaces_emacs - integrates emacs into a workspace.
 * prompts - provides simple prompts (currently only yes/no)
+* virtualbox - provides functions to simplify working with virtualbox VMs.
 * misc_functions - some miscellaneous functions.
 
 Workspaces
