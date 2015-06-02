@@ -67,3 +67,64 @@ prompt_yesno () {
     done
     echo $(_prompt_normalise_yesno "$answer")
 }
+
+
+#----------------------------------------------------
+# prompt_choose
+# Prompts the user to select from a number of choices.
+# Each choice is numbered. Returns the choice.
+#----------------------------------------------------
+
+_prompt_isnumber() {
+    printf '%f' "$1" &> /dev/null
+}
+
+_prompt_choose() {
+    local num_choices=$#
+    local choices=()
+    local i=1
+    for c in "$@"; do
+	choices[$i]=$c
+	((i++))
+    done
+    i=1
+    while (( i <= num_choices )); do
+	option=${choices[$i]}
+	echo "${i}) $option" 1>&2
+	((i++))
+    done
+    read -p "Selection: " answr
+    if ! _prompt_isnumber $answr; then
+	echo "Invalid selection: $answr" 1>&2
+	echo ""
+	return 0
+    fi
+    if (( answr <= 0 )) || (( answr > num_choices )); then
+	echo "Invalid selection: $answr" 1>&2
+	echo ""
+	return 0
+    fi
+    echo "${choices[$answr]}"
+    return 0
+}
+
+prompt_choose() {
+    local num_choices=$#
+
+    # sanity check the number of choices
+    if (( num_choices == 0 )); then
+	echo "Invalid call to prompt_choices with 0 arguments" 1>&2
+	return 1
+    elif (( num_choices  == 1 )); then
+	echo "$1"
+	return 0
+    fi
+
+    # Repeat until we get a valid selection
+    local choice=""
+    while [ "$choice" == "" ]; do
+	choice=$(_prompt_choose "$@")
+    done
+    echo "$choice"
+    return 0
+}
