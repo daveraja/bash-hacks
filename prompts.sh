@@ -1,9 +1,9 @@
 #-------------------------------------------------------------------------
 # prompts.sh
 #
-# Provides some prompt support functions (using "read -p" as the basis). 
+# Provides some prompt support functions (using "read -p" as the basis).
 # Simply adds some error correction for things like yes/no prompts.
-# These functions should be called using the $(...) form, as they return 
+# These functions should be called using the $(...) form, as they return
 # a value.
 #-------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ _prompt_valid_yesno (){
     local save=$(shopt | grep -F nocasematch)
     shopt -s nocasematch # set case insensitive pattern matching
     local re="1"
-    if [[ $v != "yes" ]] && [[ $v != "no" ]] && [[ $v != "y" ]] && [[ $v != "n" ]]; then 
+    if [[ $v != "yes" ]] && [[ $v != "no" ]] && [[ $v != "y" ]] && [[ $v != "n" ]]; then
 	re="0"
     fi
     [ "$save" == "off" ] && shopt -u nocasematch  # reset case matching
@@ -24,7 +24,7 @@ _prompt_valid_yesno (){
 }
 
 #----------------------
-# returns "y" or "n" for the input 
+# returns "y" or "n" for the input
 # Should be called with $(...).
 #----------------------
 _prompt_normalise_yesno (){
@@ -43,9 +43,9 @@ _prompt_normalise_yesno (){
 #----------------------------------------------------
 # prompt_yesno <question> [default]
 # Prompts the user for a yes/no answer to a question.
-# Will reprompt until a valid answer is provided. 
-# Allows for an optional default answer for when 
-# user presses enter. 
+# Will reprompt until a valid answer is provided.
+# Allows for an optional default answer for when
+# user presses enter.
 #----------------------------------------------------
 prompt_yesno () {
     local question="$1"
@@ -55,9 +55,9 @@ prompt_yesno () {
     if [ "$default" != "" ] && ! _prompt_valid_yesno "$default" ; then
 	echo "error: prompt_yesno function invalid default $default" 1>&2
 	echo ""
-	return 
+	return
     fi
-        
+
     read -p "$question " answer
     [ "$answer" == "" ] && answer="$default"
     while ! _prompt_valid_yesno "$answer"; do
