@@ -96,10 +96,8 @@ wkspe_shutdown(){
     ! _wkspe_server_isrunning && return 0
     if _wkspe_has_frame; then
 	emacsclient -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
-    elif [ "$DISPLAY" == "" ]; then
-	emacsclient -t -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
     else
-	emacsclient -c -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
+	emacsclient -nw -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
     fi
 }
 
@@ -128,6 +126,7 @@ wkspe_on_enter(){
 
 #------------------------------
 # My emacs edit command
+#
 #------------------------------
 wkspe_emacsclient(){
     if [ "$WORKSPACE_ID" == "" ]; then
@@ -139,8 +138,14 @@ wkspe_emacsclient(){
 	echo "error: failed to run emacs server"
 	return 1
     fi
-    if [ "$DISPLAY" == "" ]; then
-	emacsclient -t -s "$WORKSPACE_ID" $@
+    local nw=""
+    if [ "$1" == "-nw" ] || [ "$1" == "-t" ]; then
+	nw="Yes"
+	shift 1
+    fi
+
+    if [ "$DISPLAY" == "" ] || [ "$nw" != "" ] ; then
+	emacsclient -nw -s "$WORKSPACE_ID" $@
     elif _wkspe_has_frame; then
 	emacsclient -n -s "$WORKSPACE_ID" $@
     else
@@ -152,35 +157,29 @@ wkspe_emacsclient(){
 # My emacs edit command that is terminal only
 #------------------------------
 wkspe_emacsclient_nw(){
-    if [ "$WORKSPACE_ID" == "" ]; then
-	echo "error: cannot run emacs workspace server as no workspace is currently loaded"
-	return 1
-    fi
-    ! _wkspe_server_isrunning && _wkspe_run_server
-    if ! _wkspe_server_isrunning; then
-	echo "error: failed to run emacs server"
-	return 1
-    fi
-    if _wkspe_has_frame; then
-	emacsclient -n -s "$WORKSPACE_ID" $@
-    else
-	emacsclient -c -n -s "$WORKSPACE_ID" $@
-    fi
+    wkspe_emacsclient -nw $@
 }
 
 #------------------------------
 # Emacs workspace - run ediff from the command-line
 #------------------------------
 wkspe_emacsclient_ediff(){
-    local cmd="(ediff-files \"$1\" \"$2\")"
     if [ "$WORKSPACE_ID" == "" ]; then
 	echo "error: cannot connect to emacs workspace server as no workspace is currently loaded"
 	return 1
+    fi
+
+    local nw=""
+    if [ "$1" == "-nw" ] || [ "$1" == "-t" ]; then
+	nw="Yes"
+	shift 1
     fi
     if [ "$1" == "" ] || [ "$2" == "" ]; then
 	echo "error: no files specified"
 	return 1
     fi
+    local cmd="(ediff-files \"$1\" \"$2\")"
+
     # make sure emacs workspace server is running
     ! _wkspe_server_isrunning && _wkspe_run_server
     if ! _wkspe_server_isrunning; then
@@ -189,15 +188,17 @@ wkspe_emacsclient_ediff(){
     fi
 
     # Now run the ediff
-    if [ "$DISPLAY" == "" ]; then
-	emacsclient -t -s "$WORKSPACE_ID" -e '$cmd'
+    if [ "$DISPLAY" == "" ] || [ "$nw" != "" ]; then
+	emacsclient -nw -s "$WORKSPACE_ID" -e "$cmd"
     elif _wkspe_has_frame; then
-#	echo "Running1: emacsclient -n -s $WORKSPACE_ID -e '$cmd'"
 	emacsclient -n -s "$WORKSPACE_ID" -e "$cmd"
     else
-#	echo "Running2: emacsclient -c -n -s $WORKSPACE_ID -e '$cmd'"
 	emacsclient -c -n -s "$WORKSPACE_ID" -e "$cmd"
     fi
+}
+
+wkspe_emacsclient_ediff_nw(){
+    wkspe_emacsclient_ediff -nw $@
 }
 
 _wkspe_emacsclient_ediff_autocomplete () {
@@ -224,7 +225,7 @@ wksps_hook_on_exit "wkspe_on_exit"
 # Register the completion functions
 #---------------------------------------------------------------
 complete -F _wkspe_emacsclient_ediff_autocomplete wkspe_emacsclient_ediff
-
+complete -F _wkspe_emacsclient_ediff_autocomplete wkspe_emacsclient_ediff_nw
 
 export -f _wkspe_check_ws_loaded
 export -f _wkspe_run_server
@@ -234,3 +235,5 @@ export -f _wkspe_has_frame
 export -f wkspe_shutdown
 export -f wkspe_emacsclient
 export -f wkspe_emacsclient_nw
+export -f wkspe_emacsclient_ediff
+export -f wkspe_emacsclient_ediff_nw

@@ -51,7 +51,7 @@ mf_cond_append () {
 
 #----------------------------------------------------------------------
 # mf_append_sep <string-list> <append-string>
-# Takes an environment variable type list and appends to it with the 
+# Takes an environment variable type list and appends to it with the
 # separator character. NOTE: unlike mf_append the behaviour of this
 # function is undefined if any parameters are missing. So for example if
 # the environment EMPTY_ENV is empty (rather than "") than things go bad.
@@ -63,8 +63,8 @@ mf_cond_append () {
 #----------------------------------------------------------------------
 
 #----------------------------------------------------------------------
-# mf_which <program> - A wrapper around the which function. Returns 
-# empty string if false and non-empty string if true. 
+# mf_which <program> - A wrapper around the which function. Returns
+# empty string if false and non-empty string if true.
 #----------------------------------------------------------------------
 mf_which () {
     echo $(which $1 2>/dev/null)
@@ -85,6 +85,24 @@ mf_user_loggedin () {
 
     local matched=$(who | awk '{print $1}' | sort | uniq | grep "$user")
     if [ "$matched" == "$user" ]; then
+	return 0
+    fi
+    return 1
+}
+
+
+#----------------------------------------------------------------------
+# mf_is_remote_shell
+#
+# Returns 0 (true) if this is a remote shell.
+#----------------------------------------------------------------------
+
+mf_is_remote_shell () {
+    if [ "$SSH_CLIENT" != "" ]; then
+	local ip=$(echo "$SSH_CLIENT" | awk '{print $1}')
+	if [ "$ip" == "127.0.0.1" ]; then
+	    return 1
+	fi
 	return 0
     fi
     return 1

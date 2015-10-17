@@ -5,33 +5,33 @@
 # a directory containing some special files. It is a bit heavy handed and
 # implements workspaces by running a sub-bash shell. This ensures that
 # switching workspaces don't polute each others environment spaces.
-# Following are the environment variables and special files that are 
+# Following are the environment variables and special files that are
 # used by this package.
-# 
+#
 # Special files/directories:
 # - local: In the directory that is a workspace a
 # - ./.workspace - directory is created. This directory contains:
 #     - on_enter.sh  - file that is run on workspace startup
 #     - on_exit.sh   - file that is run on workspace exit
-#     - bash_history - use this file to maintain the bash history. 
+#     - bash_history - use this file to maintain the bash history.
 #     - id.<NNNN>    - randomly generated unique identify for workspace.
-#     - pids.tmp     - temporary file containing process id of active 
+#     - pids.tmp     - temporary file containing process id of active
 #                      workspace shells.
 # - ~/.workspaces - Contains symlinks to all registered workspaces
-#     
+#
 # Environment variables that are used.
 # - WORKSPACE_DIR - A workspace HOME directory.
 # - WORKSPACE_ID - A workspace identifier, from the workspace id file.
 # - WORKSPACE_LEVEL - Level of stacked workspaces.
-# - WORKSPACE_TMPFILE - A temporary file for starting and cleaning up 
+# - WORKSPACE_TMPFILE - A temporary file for starting and cleaning up
 #                       stacked workspace.
-# - WORKSPACE_BASH_ROOT_PID - The PID of the workspace root. 
-# - WORKSPACES_HOOK_ON_ENTER - An array of handlers to be called 
+# - WORKSPACE_BASH_ROOT_PID - The PID of the workspace root.
+# - WORKSPACES_HOOK_ON_ENTER - An array of handlers to be called
 #                              before on_enter.sh is run.
 # - WORKSPACES_HOOK_ON_EXIT - An array of handlers to be called
 #                             after on_exit.sh has been run.
 #
-# The idea is to maintain symlinks to workspaces so that we can 
+# The idea is to maintain symlinks to workspaces so that we can
 # quickly list and go to them using tab completion.
 #
 # Main user callable command functions:
@@ -43,8 +43,8 @@
 #
 # Workspaces allow for a simple extension mechanism. An extension
 # module can call the wksps_hook_on_enter() and wksps_hook_on_exit()
-# functions to setup handlers that are then called before 
-# on_enter.sh and after on_exit.sh respectively. Note: once an 
+# functions to setup handlers that are then called before
+# on_enter.sh and after on_exit.sh respectively. Note: once an
 # extension has been attached, it cannot be detached.
 
 # Prerequisites: assumes readlink and sed are installed.
@@ -53,7 +53,7 @@
 # 1) Initially I thought of allowing workspaces to be pushed and popped
 #    off a stack. In hindsight I don't see any particular reason for this,
 #    so the code contains a mix of the push/pop stuff (eg., the use of a
-#    WORKSPACE_LEVEL env variable) as well as a simpler  load/unload model. 
+#    WORKSPACE_LEVEL env variable) as well as a simpler  load/unload model.
 #    So should clean this up and simplify things at some point.
 # 2) Do a better job of understanding how the completions works. I'm sure
 #    that there must be some tricks that would simplify things a lot.
@@ -204,7 +204,7 @@ _wksps_create_ws_id (){
     fi
     id=$(_wksps_random_id)
     _wksps_mk_local_ws_dir "$ws"
-    touch "$ws/.workspace/id.$id"    
+    touch "$ws/.workspace/id.$id"
     return 0
 }
 #export -f _wksps_create_ws_id
@@ -221,8 +221,8 @@ _wksps_load_ws_id (){
 	    echo "error: failed to create and load a workspace ID file"
 	    return 1
 	fi
-	id=$(_wksps_get_ws_id "$ws")	
-    fi    
+	id=$(_wksps_get_ws_id "$ws")
+    fi
     export WORKSPACE_ID=$id
     return 0
 }
@@ -343,15 +343,15 @@ _wksps_create_ws_scripts (){
 
     _wksps_mk_local_ws_dir "$ws"
     if [ -f "$on_enter" ]; then
-	echo "warning: workspace on_enter script already exists in: $ws" 
+	echo "warning: workspace on_enter script already exists in: $ws"
     else
 	cat > "$on_enter" <<EOF
-# Workspace configuration file. 
+# Workspace configuration file.
 # Some variables that you can use:
 # - WORKSPACE_ID  - the workspace unique identifier
 # - WORKSPACE_DIR - location of this workspace
-# Additionally the function "wksps_num_active_pids" returns the 
-# number of active base shells for this workspace. This is useful 
+# Additionally the function "wksps_num_active_pids" returns the
+# number of active base shells for this workspace. This is useful
 # if you want to run a program (eg., some background daemon) to be
 # shared by all instances of the workspace.
 local npids=\$(wksps_num_active_pids)
@@ -359,7 +359,7 @@ echo "Setting up workspace[\$npids]..."
 EOF
     fi
     if [ -f "$on_exit" ]; then
-	echo "warning: workspace on_exit script already exists in: $ws" 
+	echo "warning: workspace on_exit script already exists in: $ws"
     else
 	cat > "$on_exit" <<EOF
 # Workspace clean file. Can use the WORKSPACE_ID, WORKSPACE_DIR variables
@@ -377,7 +377,7 @@ EOF
     fi
 
     return 0
-}    
+}
 #export -f _wksps_create_ws_scripts
 
 _wksps_load_ws_on_enter_script (){
@@ -387,7 +387,7 @@ _wksps_load_ws_on_enter_script (){
     [ ! -f "$wsfile" ] && return 1
     source "$wsfile"
     return 0
-}    
+}
 #export -f _wksps_load_ws_on_enter_script
 
 #-------------------------------
@@ -408,10 +408,10 @@ _wksps_create_ws_link (){
 
     if [ "$id" == "" ]; then
 	echo "error: not a workspace, missing id file: $ws"
-	return 
+	return
     fi
     ln -s "$absws" ~/.workspaces/$id
-}    
+}
 #export -f _wksps_create_ws_link
 
 _wksps_remove_ws_link (){
@@ -421,10 +421,10 @@ _wksps_remove_ws_link (){
 
     if [ "$id" == "" ]; then
 	echo "error: not a workspace, missing id file: $ws"
-	return 
+	return
     fi
     rm -f ~/.workspaces/$id
-}    
+}
 #export -f _wksps_remove_ws_link
 
 #-------------------------------
@@ -436,7 +436,7 @@ _wksps_has_ws_link (){
     local absws=$(_wksps_get_abs_name "$*")
     local found=$(ls -l ~/.workspaces/ | grep "$absws")
     [ "$found" != "" ]
-}    
+}
 #export -f _wksps_has_ws_link
 
 #-------------------------------
@@ -493,7 +493,7 @@ _wksps_load_ws (){
     fi
 
     # Setup the environment
-    export WORKSPACE_BASH_ROOT_PID=$$  
+    export WORKSPACE_BASH_ROOT_PID=$$
     if [ -z "$WORKSPACE_LEVEL" ]; then
 	export WORKSPACE_LEVEL=0
     else
@@ -543,7 +543,7 @@ _wksps_set_ws_cleanup_fn (){
 
 #-------------------------------
 # _wksps_get_all
-# - Get the list of workspaces by setting the value of a 
+# - Get the list of workspaces by setting the value of a
 #   known global array. WORKSPACES
 #-------------------------------
 
@@ -593,7 +593,7 @@ _wksps_push () {
 
     # A temporary file for communicating with the new shell workspace
     export WORKSPACE_TMPFILE=$(mktemp "/tmp/${USER}_tmpws.XXXXXXXXX")
-    
+
     # Go to the new workspace dir, load the workspace, set a default
     # cleanup function, then source ~/.bashrc. Note: default cleanup
     # is necessary for Ctrl-D (EOF) to exit properly.
@@ -605,8 +605,8 @@ _wksps_push () {
     # Set up WORKSPACE_ID  and WORKSPACE_DIR
     export WORKSPACE_ID=$(_wksps_get_ws_id "$newws")
     export WORKSPACE_DIR="$newws"
-    
-    # Make the workspace directory the current directory for the 
+
+    # Make the workspace directory the current directory for the
     # non-workspace parent shell. This will make opening a new
     # shell from this parent more intuitive.
     builtin cd "$newws"
@@ -614,13 +614,13 @@ _wksps_push () {
     # Load and enter the new workspace
     bash --rcfile $WORKSPACE_TMPFILE
 
-    # Reload the workspace tmpfile. This defines the cleanup function and 
+    # Reload the workspace tmpfile. This defines the cleanup function and
     # the PID of the (now exited) workspace shell.
     if [ -f "$WORKSPACE_TMPFILE" ]; then
 	source "$WORKSPACE_TMPFILE"
 	rm -f "$WORKSPACE_TMPFILE"
     fi
-    
+
     # Remove the PID from the active list in the workspace id file
     _wksps_cleanup_inactive_pids "$newws"
 
@@ -628,14 +628,14 @@ _wksps_push () {
     if [ -f "$newws/.workspace/on_exit.sh" ]; then
 	source "$newws/.workspace/on_exit.sh"
     fi
-    
+
     # Finally run any extension hooks
     for hook in "${WORKSPACES_HOOK_ON_EXIT[@]}"; do
 	eval "$hook"
     done
 
 
-    # Recover from the 
+    # Recover from the
     unset WORKSPACE_ID
     unset WORKSPACE_DIR
     unset WORKSPACE_BASH_ROOT_PID
@@ -657,7 +657,7 @@ _wksps_push () {
 	unset WORKSPACE_TMPFILE
     else
 	export WORKSPACE_TMPFILE="$savedwstmpfile"
-    fi	
+    fi
     builtin cd "$currdir"
 }
 #export -f _wksps_push
@@ -682,7 +682,7 @@ _wksps_pop () {
 #export -f _wksps_pop
 
 #-------------------------------
-# wksps_reload 
+# wksps_reload
 # Reload a workspace
 #-------------------------------
 _wksps_reload () {
@@ -696,10 +696,10 @@ _wksps_reload () {
 	echo "cannot reload workspace: unable to unload workspace from a workspace sub-shell"
 	return 1
     fi
-    echo "Reloading workspace..." 1>&2 
+    echo "Reloading workspace..." 1>&2
     # Reload workspace means exiting the current shell also but setting up so
     # the parent shell will re-startup the workspace.
-    _wksps_set_ws_cleanup_fn "_wksps_push \"$WORKSPACE_DIR"\" 
+    _wksps_set_ws_cleanup_fn "_wksps_push \"$WORKSPACE_DIR"\"
     builtin exit &>/dev/null
     return 0
 }
@@ -726,7 +726,7 @@ _wksps_mk (){
 #-------------------------------
 # _wksps_isnumber
 #-------------------------------
-_wksps_isnumber() { 
+_wksps_isnumber() {
     printf '%f' "$1" &> /dev/null
 }
 
@@ -760,7 +760,7 @@ _wksps_selws_prompt (){
     else
 	echo "error: out of range selection: $answr" 1>&2
 	echo ""
-    fi    
+    fi
 }
 
 
@@ -811,13 +811,13 @@ _wksps_mk_prompt (){
 	return 0
     fi
     return 1
-} 
+}
 #export -f _wksps_mk_prompt
 
 #-------------------------------
 # wksps_chgws () - change workspace
 # Goto/change/create the workspace
-# - if no arguments then go to the current workspace 
+# - if no arguments then go to the current workspace
 #-------------------------------
 _wksps_chgws () {
     local goto_ws=1
@@ -832,7 +832,7 @@ _wksps_chgws () {
 #	    echo "WORKSPACE_DIR is not set" 1>&2
 #	    return 1
 	fi
-	builtin cd "$WORKSPACE_DIR"	
+	builtin cd "$WORKSPACE_DIR"
 	return
     elif ! _wksps_is_ws "$absws" ; then
 	echo "error: not a workspace: $ws"
@@ -844,12 +844,12 @@ _wksps_chgws () {
 #	    goto_ws=0
 #	fi
     fi
-    if [ $goto_ws -eq 1 ]; then	
+    if [ $goto_ws -eq 1 ]; then
 	if [ "$WORKSPACE_ID" == "" ]; then                          #  Load new workspace
 	    _wksps_push "$absws"
 	elif [ -f "$absws/.workspace/id.$WORKSPACE_ID" ]; then      # Same workspace so simply cd
 	    builtin cd "$WORKSPACE_DIR"
-	else                            
+	else
             # Switch workspaces means exiting the current shell but setting up so
 	    # the parent shell will startup the new workspace.
 	    # But can only switch workspaces from the workspace bash root
@@ -857,8 +857,8 @@ _wksps_chgws () {
 		echo "cannot switch workspaces: unable to unload workspace from a workspace sub-shell"
 		return 1
 	    fi
-#	    echo "switching workspaces..."               
-	    _wksps_set_ws_cleanup_fn "_wksps_push \"$absws"\" 
+#	    echo "switching workspaces..."
+	    _wksps_set_ws_cleanup_fn "_wksps_push \"$absws"\"
 	    builtin exit &>/dev/null
 	fi
     fi
@@ -882,7 +882,7 @@ _wksps_listws (){
 #-------------------------------
 # wksps_delws <directory>
 # - Delete a workspace. 
-#   Note: this only deletes the symlink. Delete the 
+#   Note: this only deletes the symlink. Delete the
 #   directory manually.
 #-------------------------------
 _wksps_delws () {
@@ -896,7 +896,7 @@ _wksps_delws () {
 	echo "error: must unload before deleting the currently loaded workspace: $ws"
 	return 1
     fi
-       
+
     _wksps_remove_ws_link "$ws"
     echo "workspace link has been deleted. Please delete directory to fully remove data: $ws"
     return 0
@@ -905,16 +905,16 @@ _wksps_delws () {
 
 #---------------------------------
 # wksps_load_if ()
-# Checks if no workspace is active and the current directory 
-# is a workspace. If so then by default calls wspush to load the new 
+# Checks if no workspace is active and the current directory
+# is a workspace. If so then by default calls wspush to load the new
 # workspace, or optionally (the "-p" option) prompts the user.
 #---------------------------------
 _wksps_load_if () {
     local currdir=$(pwd)
     [ ! -z "$WORKSPACE_ID" ] && return
-    local options="$*" 
+    local options="$*"
     if ! _wksps_is_ws "$currdir" ; then return 0; fi
-    
+
     if [ "$options" != "-p" ] && [ "$options" != "" ]; then
 	echo "error: Invalid options '$options' for load_if"
 	return 1
@@ -923,8 +923,8 @@ _wksps_load_if () {
     if [ "$options" == "-p" ]; then
 	echo "Current directory: $currdir"
 	local res=$(prompt_yesno "Load workspace in this directory (Y/n)" y)
-	[ "$res" == "n" ] && return 0	
-    fi 
+	[ "$res" == "n" ] && return 0
+    fi
     _wksps_push "$currdir"
 }
 #export -f _wksps_load_if
@@ -941,7 +941,7 @@ _wksps_cleanup () {
 	    if [ ! -d "$absws" ] || [ ! -d "$absws/.workspace" ]; then
 		echo "Removing stale workspace link: $ws"
 		rm -f $idfile
-	    fi  
+	    fi
 	fi
     done
 }
@@ -977,17 +977,17 @@ _wksps_cd () {
 #export -f _wksps_cd
 
 #---------------------------------
-# _wksps_cfg 
+# _wksps_cfg
 # Configure the current workspace's on_enter and on_exit scripts.
 #---------------------------------
 
 _wksps_cfg (){
     local ws="$*"
     local wsdir="$WORKSPACE_DIR/.workspace"
-    local editor=$EDITOR    
+    local editor=$EDITOR
     if [ "$ws" == "" ] && [ "$WORKSPACE_DIR" == "" ]; then
 	echo "error: no workspace has been specified or loaded" 1>&2
-	return 1   
+	return 1
     elif [ "$ws" != "" ]; then
 	if ! _wksps_is_ws "$ws" ; then
 	    echo "error: $ws is not a valid workspace" 1>&2
@@ -995,7 +995,7 @@ _wksps_cfg (){
 	fi
 	wsdir="$ws/.workspace"
     fi
-    [ "$editor" == "" ] && editor=vi 
+    [ "$editor" == "" ] && editor=vi
     $editor $wsdir/on_enter.sh $wsdir/on_exit.sh
 }
 
