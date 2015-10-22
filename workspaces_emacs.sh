@@ -94,11 +94,15 @@ wkspe_shutdown(){
 	return 1
     fi
     ! _wkspe_server_isrunning && return 0
-    if _wkspe_has_frame; then
-	emacsclient -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
-    else
-	emacsclient -nw -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
-    fi
+
+    # Always exit in terminal mode
+    emacsclient -nw -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
+
+#    if _wkspe_has_frame; then
+#	emacsclient -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
+#    else
+#	emacsclient -nw -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
+#    fi
 }
 
 #------------------------------
