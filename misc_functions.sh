@@ -5,57 +5,116 @@
 #----------------------------------------------------------------------
 
 #----------------------------------------------------------------------
-# mf_append <string-list> <append-string>
-# Takes an environment variable type list and appends to it with ":" as
-# the separator.
-#----------------------------------------------------------------------
-mf_append () {
-    if [ "$1" == "" ]; then
-	echo "$2"
-	return
+# mf_append <string> <string>
+#
+# Append to the front of an environment variable string. Appends with
+# the ':' separator.
+# ----------------------------------------------------------------------
+mf_concat () {
+    if [ "$1" == "" ] || [ "$2" == "" ]; then  # missing elements
+	echo "$1$2"
+    else
+	echo "$1:$2"
     fi
-    if [ "$2" == "" ]; then
-	echo "$1"
-	return
-    fi
-    echo "$1:$2"
 }
 
-#----------------------------------------------------------------------
-# mf_cond_append <string-list> <append-string>
-# Checks if str2
-#----------------------------------------------------------------------
-mf_cond_append () {
-    # Simple cases
-    if [ "$1" == "" ]; then
-	echo "$2"
-	return
-    elif [ "$2" == "" ]; then
-	echo "$1"
-	return
-    fi
+#-----------------------------------------------------------------------------------
+# mf_in_list <string> <list>
+#
+# Tests if a string is in a list (where the list is ":" separated) return 1 on false
+# and 0 on true.
+# ----------------------------------------------------------------------------------
+mf_in_list (){
     local string="$1"
-    local append="$2"
+    local list="$2"
 
+    if [ "$list" == "" ] || [ "$string" == "" ]; then
+	return 1
+    fi
     # split the list and search
-    local arr=$(echo "$string" | tr ":" "\n")
+    local arr=$(echo "$list" | tr ":" "\n")
     for x in $arr
     do
-	if [ "$x" == "$append" ]; then
-	    echo "$string"
-	    return
-	fi
+	[ "$x" == "$string" ] && return 0
     done
-    echo "$string:$append"
+    return 1
 }
 
-#----------------------------------------------------------------------
-# mf_append_sep <string-list> <append-string>
-# Takes an environment variable type list and appends to it with the
-# separator character. NOTE: unlike mf_append the behaviour of this
-# function is undefined if any parameters are missing. So for example if
-# the environment EMPTY_ENV is empty (rather than "") than things go bad.
+mf_list_size (){
+    local list="$1"
+    if [ "$list" == "" ]; then
+	echo 1
+    else
+	# split the list and search
+	count=$(echo "$list" | tr ":" "\n" | wc -l)
+	echo $count
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# mf_cond_insert/append <string> <list>
 #
+# Checks if string is already part of string-list. If it is then just return the
+# original list, otherwise return the list with the string inserted(front) /
+# appended(back) to the list.
+# ------------------------------------------------------------------------------
+mf_cond_insert () {
+    local string="$1"
+    local list="$2"
+
+    if [ "$list" == "" ] || [ "$string" == "" ]; then  # missing elements
+	echo "$list$string"
+    elif mf_in_list $string $list ; then
+	echo "$list"
+    else
+	echo "$string:$list"
+    fi
+}
+
+mf_cond_append () {
+    local string="$1"
+    local list="$2"
+
+    if [ "$list" == "" ] || [ "$string" == "" ]; then  # missing elements
+	echo "$list$string"
+    elif mf_in_list $string $list ; then
+	echo "$list"
+    else
+	echo "$list:$string"
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# mf_insert/append_if_path <path> <list>
+#
+# Provided that path exists then conditionally add it to the front/back of the
+# path-list (path list is ":" separated). Note: need to account for being passed and
+# empty list or empty path (hence the trickiness in the tests).
+# ----------------------------------------------------------------------------
+mf_insert_if_path () {
+    local path="$1"
+    local list="$2"
+
+    if ! [ -e "$path" ]; then
+	echo "$list"
+    else
+	echo $(mf_cond_insert "$path" "$list")
+    fi
+}
+
+mf_append_if_path () {
+    local path="$1"
+    local list="$2"
+
+    if ! [ -e "$path" ]; then
+	echo "$list"
+    else
+	echo $(mf_cond_append "$path" "$list")
+    fi
+}
+
+
+#----------------------------------------------------------------------
 # see http://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
 #
 # http://stackoverflow.com/questions/228544/how-to-tell-if-a-string-is-not-defined-in-a-bash-shell-script

@@ -5,7 +5,7 @@ Some hacks to make life easier in bash. The first hack is to provide a
 script that implements a simple notion of *modules*. This is then used
 to provide useful user modules.
 
-Module boostrapping 
+Module boostrapping
 -------------------
 
 Since, bash itself doesn't have a built-in notion of modules a simple
@@ -22,7 +22,7 @@ functions to import modules:
 The first loads the module only if it hasn't been loaded previously,
 while the second forces the module to be loaded even if it has
 previously been loaded. Both these functions provide a wrapper around
-the bash `source` command. 
+the bash `source` command.
 
 While calling `source` on a script is simple enough it does have a few
 limitations, which the module commands try to address:
@@ -45,7 +45,7 @@ limitations, which the module commands try to address:
    already been loaded. The `mbimport` loads a module only once even
    if the function has been called multiple times. On the other hand
    `mbforce` reloads a module regardless of whether it has been
-   previously loaded. 
+   previously loaded.
 
 3. On exporting. The ability to export variables and functions so that
    they can be inherited by sub-processes complicates things
@@ -61,7 +61,7 @@ limitations, which the module commands try to address:
 There is also a support function for adding paths to the modules
 search path:
 
-     mbset_MODULE_PATH <path>	   
+     mbset_MODULE_PATH <path>
 
 You can of course set the `MODULE_PATH` environment variable manually,
 but the function tries to be a bit smarter and only adds paths that
@@ -79,7 +79,7 @@ like the following:
     BASH_DIR=$HOME/local/etc/bash.d
     [ "$_MB_IMPORTED_modules_bootstrap" != "1" ] && source $BASH_DIR/modules_bootstrap.sh
 
-    # add my local (computer specific) modules to the MODULE_PATH    
+    # add my local (computer specific) modules to the MODULE_PATH
     mbset_MODULE_PATH $HOME/.bash.d
 
     # Import various modules - mostly just to setup my operating environment.
@@ -91,7 +91,7 @@ like the following:
     # Provide useful workspace emacs function - note: this first loads
     # the workspaces module which provides workspace functions in bash.
     mbimport workspaces_emacs
-    
+
     # Workspaces function to load a workspace from the current directory.
     wksp load_if -p
 
@@ -118,7 +118,7 @@ as well maintaining their own bash history.
 
 Working within a workspace is implemented by running a sub-bash
 shell. This ensures that workspaces don't polute each others
-environment spaces. 
+environment spaces.
 
 Note, that this whole sub-shell thing should be reasonably transparent
 to the user and should feel like you are working in a normal
@@ -142,20 +142,20 @@ running instance of that workspace and if so will make sure the emacs
 server for that workspace is shutdown.
 
 Following are the special files that are used by this module.
- 
+
 * Special files/directories:
-  * `.workspace` - this sub-directory is created in the directory that is a workspace. 
+  * `.workspace` - this sub-directory is created in the directory that is a workspace.
      This sub-directory contains:
      * `on_enter.sh`  - file that is run on workspace startup. Edit as necessary.
      * `on_exit.sh`   - file that is run on workspace exit. Edit as necessary.
-     * `bash_history` - use this file to maintain the bash history. 
+     * `bash_history` - use this file to maintain the bash history.
      * `id.<NNNN>`    - randomly generated unique identify for workspace.
      * `pids.tmp`     - a temporary file that tracks the open shells for a workspace.
 
-     * `~/.workspaces` - Contains symlinks to all registered workspaces. 
+     * `~/.workspaces` - Contains symlinks to all registered workspaces.
                          This allows for the provision of functions to list
                          and switching betwen workspaces.
-     
+
 * Some environment variables that may be useful from the startup or
   exit scripts:
   * `WORKSPACE_DIR` - the workspace HOME directory.
@@ -165,8 +165,8 @@ Main user callable command functions:
   * `wksp help` - full list and descriptions of the various options.
   * `wksp add` - configure a directory as a workspace.
   * `wksp sel` - change to a workspace by selecting from a numbered list.
-  * `wksp load_if` - If the current directory is a workspace then load it. 
-                     Useful for adding to .bash_profile to automate 
+  * `wksp load_if` - If the current directory is a workspace then load it.
+                     Useful for adding to .bash_profile to automate
                      loading workspaces.
   * `wsls [file]` - shortcut for "wksp ls". "ls" relative to `WORKSPACE_DIR`.
   * `wscd [directory]` - shortcut for "wksp cd". "cd" relative to `WORKSPACE_DIR`.
@@ -178,20 +178,65 @@ Miscellaneous Functions
 Most of these functions "echo" their result so should be called with the
 $(...)  pattern.
 
-Append to a string list (with some separator character). Useful for
-adding to environment variables (e.g, PATH). If the first element is
-empty then it simply returns the second element and no concatenation
-occurs. This avoids creating lists with empty separators. 
 
-* mf_append: Simplest version of append. Example usage: 
+Operations on string lists:
 
-  	     PATH=$(mf_append $PATH "append-path")
+Functions to manipulate and inspect lists.
 
-* mf_cond_append: Conditional append. If the append string is already
-  an element of the list the no append occurs. This is a bit more
-  works as it has to first split the string list into its component
-  parts. Useful for adding to a path where you are not sure if the
-  item is already in the path.
+Note: 1) a list in this context is just a string that uses the ":" as a
+separator. These functions are useful for adding to environment variables (e.g,
+PATH). Note: with the modifying functions, if the list or new string is empty then it
+simply returns (any) non-empty parts. This avoids creating lists with empty ":"
+separators. 2) The functions have the string parameter first and the list
+second. This makes sense because you are typically appending to some existing list
+that corresponds to a env variable. This variable may or may not be defined (eg.,
+C_INCLUDE_DIR), where as the thing you are trying to append will usually be defined.
+
+* mf_in_list <string> <list>
+
+  Returns true (0) if the string is a member of list and false (1) otherwise.
+
+* mf_concat <string/list> <string/list>
+
+  Simplest version. Concatenates two paths or strings with a ":" separator.  Example
+  usage:
+
+  	     PATH=$(mf_concat $PATH "append-path")
+
+* The following functions are more complex then the simple concat as they provide
+  conditional insert/appending functions.
+
+** mf_cond_insert <string> <list>
+
+   Insert the string to the front of the list only if the string is not already a
+   member of the list. Example usage:
+
+  	    PATH=$(mf_cond_insert "p1:p2" "p3")
+
+	    result: PATH == "p3:p1:p2"
+
+** mf_cond_append <string> <list>
+
+   Append the string to the end of the list only if the string is not already a
+   member of the list. Example usage:
+
+  	    PATH=$(mf_cond_insert "p1:p2" "p3")
+
+	    result: PATH == "p1:p2:p3"
+
+** mf_insert_if_path <path> <list>
+
+   Same as mf_cond_insert but first checks that the string is a valid path (ie.,
+   file or directory). Example usage:
+
+  	    PATH=$(mf_insert_if "~/include" $PATH)
+
+** mf_append_if <path> <list>
+
+   Same as mf_cond_append but first checks that the string is a valid path (ie.,
+   file or directory). Example usage:
+
+  	    PATH=$(mf_append_if "~/include" $PATH)
 
 Other function:
 
