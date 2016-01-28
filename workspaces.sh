@@ -164,7 +164,7 @@ _wksps_mk_local_ws_dir (){
 # _wksps_create_ws_id, _wksps_get_ws_id, _wksps_load_ws_id   <workspace>
 # Create a workspace ID file
 # Get the workspace ID file
-# Load a workspace ID 
+# Load a workspace ID
 #------------------------------
 
 _wksps_random_id (){
@@ -881,7 +881,7 @@ _wksps_listws (){
 
 #-------------------------------
 # wksps_delws <directory>
-# - Delete a workspace. 
+# - Delete a workspace.
 #   Note: this only deletes the symlink. Delete the
 #   directory manually.
 #-------------------------------
@@ -1043,7 +1043,7 @@ _wksps_completion_list (){
 	if [ -d "$cur" ]; then
 	    if [[ ! "$cur" =~ /$ ]]; then cur="$cur/"; fi
 	    abscur="$abscur/"
-	fi       
+	fi
 	echo "$(_wksps_listws | sed -e 's!~!'"$HOME"'!' | sed -n 's!'"$abscur"'!'"$cur"'!p')"
     fi
 }
@@ -1138,15 +1138,15 @@ _wksps_wksp_autocomplete () {
 	    suggestions=$(ls)
 	elif [ "$cmd" == "ls" ]; then
 	    if ! _wksps_args_is_option "$cur"; then
-		suggestions=$(_wksps_wksp_ls_completion "$cur")	    
+		suggestions=$(_wksps_wksp_ls_completion "$cur")
 	    fi
 	elif [ "$cmd" == "cd" ]; then
-	    suggestions=$(_wksps_wksp_cd_completion "$cur")	    
+	    suggestions=$(_wksps_wksp_cd_completion "$cur")
 	fi
     elif [ $COMP_CWORD -eq 3 ] && [ "$cmd" == "ls" ]; then
-	suggestions=$(_wksps_wksp_ls_completion "$cur")	    
+	suggestions=$(_wksps_wksp_ls_completion "$cur")
     fi
-    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )	
+    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
     return 0
 }
 #export -f _wksps_wksp_autocomplete
@@ -1164,7 +1164,7 @@ _wksps_ws_autocomplete () {
     if [ $COMP_CWORD -eq 1 ]; then
 	    suggestions=$(_wksps_completion_list "$cur")
     fi
-    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )	
+    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
     return 0
 }
 #export -f _wksps_ws_autocomplete
@@ -1180,9 +1180,9 @@ _wksps_wsls_autocomplete () {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     if [ $COMP_CWORD -eq 1 ] && ! _wksps_args_is_option "$cur"; then
-	suggestions=$(_wksps_wksp_ls_completion "$cur")	    
+	suggestions=$(_wksps_wksp_ls_completion "$cur")
     fi
-    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )	
+    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
     return 0
 }
 #export -f _wksps_wsls_autocomplete
@@ -1199,9 +1199,9 @@ _wksps_wscd_autocomplete () {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     if [ $COMP_CWORD -eq 1 ]; then
-	suggestions=$(_wksps_wksp_cd_completion "$cur")	    
+	suggestions=$(_wksps_wksp_cd_completion "$cur")
     fi
-    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )	
+    COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
     return 0
 }
 #export -f _wksps_wscd_autocomplete
@@ -1210,6 +1210,16 @@ _wksps_wscd_autocomplete () {
 #-----------------------------------------------------------------------
 # User callable
 #-----------------------------------------------------------------------
+
+#------------------------------
+# returns true (0) if any workspace is loaded and false (1) otherwise.
+#------------------------------
+wksps_is_loaded(){
+    if [ "$WORKSPACE_ID" == "" ]; then
+	return 1
+    fi
+    return 0
+}
 
 #-------------------------------
 # Returns the number of active pids in the current workspace

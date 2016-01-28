@@ -31,15 +31,19 @@
 #
 #-------------------------------------------------------------------------
 mbimport workspaces
+mbimport prompts
+
+export GLOBAL_EMACS_SERVER_ID="global_eserver"      # name of emacs server when not in workspace
 
 #------------------------------
-# returns true if a workspace is loaded and false otherwise. If false
-# writes out an error message.
+# validate_ws - If a workspace is loaded then do nothing, otherwise
+# set the WORKSPACE_ID to a global value
 #------------------------------
-_wkspe_check_ws_loaded(){
-    if [ "$WORKSPACE_ID" == "" ]; then
-	echo "error: no workspace has been loaded"
-	return 1
+_wkspe_get_server_id(){
+    if wksps_is_loaded ; then
+	echo "$WORKSPACE_ID"
+    else
+	echo "$GLOBAL_EMACS_SERVER_ID"
     fi
     return 0
 }
@@ -50,7 +54,8 @@ _wkspe_check_ws_loaded(){
 # a bug or a property of the emacs server?
 #------------------------------
 _wkspe_has_frame(){
-    local res=$(emacsclient -s "$WORKSPACE_ID" -e '(let ((nfrms (length (frame-list)))) (if (<= nfrms 1) (message "NO")))' 2>&1)
+    local server_id=$(_wkspe_get_server_id)
+    local res=$(emacsclient -s "$server_id" -e '(let ((nfrms (length (frame-list)))) (if (<= nfrms 1) (message "NO")))' 2>&1)
     if [[ "$res" =~ "NO" ]]; then
 	return 1
     fi
@@ -61,23 +66,50 @@ _wkspe_has_frame(){
 # Start up the emacs server for the workspace
 #------------------------------
 _wkspe_run_server(){
-    emacs --daemon="$WORKSPACE_ID"
+    local server_id=$(_wkspe_get_server_id)
+
+#    echo "RUNNING $server_id"
+    emacs --daemon="$server_id"
 }
 
 #------------------------------
 # Check if the workspace emacs server is running
 #------------------------------
 _wkspe_server_isrunning(){
-    local comm="emacs --daemon=$WORKSPACE_ID"
+    local server_id=$(_wkspe_get_server_id)
+    local comm="emacs --daemon=$server_id"
     local res=$(pgrep -f "$comm")
     [ "$res" != "" ]
+}
+
+#------------------------------
+# If a server is running then do return true (0).
+# If in workspace and no server is running then run one.
+# If not in workspace then prompt user.
+# Returns the true (0) if a server is running.
+#------------------------------
+_wkspe_validate_running_server(){
+    local server_id=$(_wkspe_get_server_id)
+    _wkspe_server_isrunning && return 0
+    local server_id=$(_wkspe_get_server_id)
+
+    if [ "$server_id" == "$GLOBAL_EMACS_SERVER_ID" ]; then
+	local res=$(prompt_yesno "Not in workspace. Start global emacs server: \"$server_id\" (y/N)?" n)
+	[ "$res" == "n" ] && return 1
+    fi
+    _wkspe_run_server
+    _wkspe_server_isrunning && return 0
+
+    echo "error: failed to run emacs server: \"$server_id\""
+    return 1
 }
 
 #------------------------------
 # NOTE: this kill server function is not currently being used.
 #------------------------------
 _wkspe_kill_server(){
-    local comm="emacs --daemon=$WORKSPACE_ID"
+    local server_id=$(_wkspe_get_server_id)
+    local comm="emacs --daemon=$server_id"
     local res=$(pgrep -f "$comm")
     [ "$res" == "" ] && return 0
     kill $res
@@ -89,19 +121,16 @@ _wkspe_kill_server(){
 # Intelligently shutdown the workspace emacs server (if it is running).
 #------------------------------
 wkspe_shutdown(){
-    if [ "$WORKSPACE_ID" == "" ]; then
-	echo "error: cannot shutdown emacs workspace server as no workspace is currently loaded"
-	return 1
-    fi
+    local server_id=$(_wkspe_get_server_id)
     ! _wkspe_server_isrunning && return 0
 
     # Always exit in terminal mode
-    emacsclient -nw -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
+    emacsclient -nw -s "$server_id" -e '(save-buffers-kill-emacs)'
 
 #    if _wkspe_has_frame; then
-#	emacsclient -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
+#	emacsclient -s "$server_id" -e '(save-buffers-kill-emacs)'
 #    else
-#	emacsclient -nw -s "$WORKSPACE_ID" -e '(save-buffers-kill-emacs)'
+#	emacsclient -nw -s "$server_id" -e '(save-buffers-kill-emacs)'
 #    fi
 }
 
@@ -133,15 +162,8 @@ wkspe_on_enter(){
 #
 #------------------------------
 wkspe_emacsclient(){
-    if [ "$WORKSPACE_ID" == "" ]; then
-	echo "error: cannot run emacs workspace server as no workspace is currently loaded"
-	return 1
-    fi
-    ! _wkspe_server_isrunning && _wkspe_run_server
-    if ! _wkspe_server_isrunning; then
-	echo "error: failed to run emacs server"
-	return 1
-    fi
+    ! _wkspe_validate_running_server && return 1 # make sure emacs server is running
+    local server_id=$(_wkspe_get_server_id)
     local nw=""
     if [ "$1" == "-nw" ] || [ "$1" == "-t" ]; then
 	nw="Yes"
@@ -149,11 +171,11 @@ wkspe_emacsclient(){
     fi
 
     if [ "$DISPLAY" == "" ] || [ "$nw" != "" ] ; then
-	emacsclient -nw -s "$WORKSPACE_ID" $@
+	emacsclient -nw -s "$server_id" $@
     elif _wkspe_has_frame; then
-	emacsclient -n -s "$WORKSPACE_ID" $@
+	emacsclient -n -s "$server_id" $@
     else
-	emacsclient -c -n -s "$WORKSPACE_ID" $@
+	emacsclient -c -n -s "$server_id" $@
     fi
 }
 
@@ -168,11 +190,7 @@ wkspe_emacsclient_nw(){
 # Emacs workspace - run ediff from the command-line
 #------------------------------
 wkspe_emacsclient_ediff(){
-    if [ "$WORKSPACE_ID" == "" ]; then
-	echo "error: cannot connect to emacs workspace server as no workspace is currently loaded"
-	return 1
-    fi
-
+    local server_id=$(_wkspe_get_server_id)
     local nw=""
     if [ "$1" == "-nw" ] || [ "$1" == "-t" ]; then
 	nw="Yes"
@@ -184,20 +202,16 @@ wkspe_emacsclient_ediff(){
     fi
     local cmd="(ediff-files \"$1\" \"$2\")"
 
-    # make sure emacs workspace server is running
-    ! _wkspe_server_isrunning && _wkspe_run_server
-    if ! _wkspe_server_isrunning; then
-	echo "error: failed to run emacs server"
-	return 1
-    fi
+    # make sure emacs server is running
+    ! _wkspe_validate_running_server && return 1
 
     # Now run the ediff
     if [ "$DISPLAY" == "" ] || [ "$nw" != "" ]; then
-	emacsclient -nw -s "$WORKSPACE_ID" -e "$cmd"
+	emacsclient -nw -s "$server_id" -e "$cmd"
     elif _wkspe_has_frame; then
-	emacsclient -n -s "$WORKSPACE_ID" -e "$cmd"
+	emacsclient -n -s "$server_id" -e "$cmd"
     else
-	emacsclient -c -n -s "$WORKSPACE_ID" -e "$cmd"
+	emacsclient -c -n -s "$server_id" -e "$cmd"
     fi
 }
 
@@ -231,12 +245,15 @@ wksps_hook_on_exit "wkspe_on_exit"
 complete -F _wkspe_emacsclient_ediff_autocomplete wkspe_emacsclient_ediff
 complete -F _wkspe_emacsclient_ediff_autocomplete wkspe_emacsclient_ediff_nw
 
-export -f _wkspe_check_ws_loaded
+export -f _wkspe_get_server_id
+export -f _wkspe_has_frame
 export -f _wkspe_run_server
 export -f _wkspe_server_isrunning
+export -f _wkspe_validate_running_server
 export -f _wkspe_kill_server
-export -f _wkspe_has_frame
 export -f wkspe_shutdown
+export -f wkspe_on_exit
+export -f wkspe_on_enter
 export -f wkspe_emacsclient
 export -f wkspe_emacsclient_nw
 export -f wkspe_emacsclient_ediff
