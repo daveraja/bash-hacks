@@ -117,6 +117,19 @@ _wkspe_kill_server(){
     [ "$res" != "" ]
 }
 
+
+#------------------------------
+# Intelligently shutdown all emacs servers.
+#------------------------------
+#wkspe_shutdown_all(){
+#    local servers=$(ps aux | grep "emacs --daemon="
+#    local server_id=$(_wkspe_get_server_id)
+#    ! _wkspe_server_isrunning && return 0
+
+#    # Always exit in terminal mode
+#    emacsclient -nw -s "$server_id" -e '(save-buffers-kill-emacs)'
+#}
+
 #------------------------------
 # Intelligently shutdown the workspace emacs server (if it is running).
 #------------------------------
