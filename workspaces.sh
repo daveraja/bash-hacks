@@ -740,16 +740,22 @@ _wksps_selws_prompt (){
     local wrksps_s=()
     local tmpi
     local prompt="$@"
+
+    # Build the list of workspace symlinks that point to valid directories.
     for fn in ~/.workspaces/*; do
-	if [ -h "$fn" ]; then
+	if [ -h "$fn" ] && [ -d "$fn" ] ; then
 	    wrksps_u[${#wrksps_u[@]}]=$(_wksps_get_tilda_name $(readlink "$fn"))
 	fi
     done
+
+    # Display the sorted list with a number for each selection
     for fn in $(for i in ${wrksps_u[@]}; do echo "$i"; done | sort) ; do
 	tmpi=$(( ${#wrksps_s[@]} + 1))
 	wrksps_s[${#wrksps_s[@]}]=$fn
 	echo "$tmpi) $fn" 1>&2
     done
+
+    # Read/validate/return the answer
     read -p "$@" answr
     if ! _wksps_isnumber $answr; then
 	echo "error: not a number: $answr" 1>&2
@@ -931,16 +937,27 @@ _wksps_load_if () {
 
 #---------------------------------
 # wksps_cleanup ()
-# Checks to make sure all workspaces are valid.
+# Checks to make sure all workspaces are valid. If the symlink doesn't
+# point to a valid directory then prompt the user to remove it.
 #---------------------------------
 _wksps_cleanup () {
     for idfile in ~/.workspaces/*; do
 	if [ -h "$idfile" ]; then
 	    local absws=$(readlink -m "$idfile")
 	    local ws=$(_wksps_get_tilda_name "$absws")
-	    if [ ! -d "$absws" ] || [ ! -d "$absws/.workspace" ]; then
-		echo "Removing stale workspace link: $ws"
-		rm -f $idfile
+
+	    # Check if we have a deletion candiate - prompt to delete
+	    if [ ! -d "$absws" ] || [ ! -d "$absws/.workspace" ] ; then
+		if [ -d "$absws" ] && [ ! -d "$absws/.workspace" ] ; then
+		    echo "Directory exists but is not a valid workspace: $ws"
+		elif [ ! -d "$absws" ] ; then
+		    echo "Directory does not exists: $ws"
+		fi
+		local res=$(prompt_yesno "Do you want to delete this workspace link (y/N)" n)
+		if [ "$res" == "y" ]; then
+		    echo "Removing stale workspace link: $ws"
+		    rm -f $idfile
+		fi
 	    fi
 	fi
     done
