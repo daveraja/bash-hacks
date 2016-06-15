@@ -62,6 +62,14 @@
 # 4) Currently have to load workspaces.sh after any "ls" aliases have been
 #    setup, otherwise things like coloring of entries won't work. Should
 #    be possible to do this properly.
+#
+# Fixes:
+# 20160615 - Problem with workspace sub-shells not being setup correctly
+#            because they won't inherit the bash functions that were setup
+#            with the workspace on_enter.sh file. Proposed solution is to
+#            modify the load_if function to detect if it is a sub-shell
+#            and if so to source the workspace's on_enter.sh.
+#
 #----------------------------------------------------------------------
 mbimport prompts
 
@@ -672,7 +680,7 @@ _wksps_pop () {
 	return 1
     fi
     # Can only unload from a workspace bash root
-    if [ $WORKSPACE_BASH_ROOT_PID != $$ ]; then
+    if wksps_is_subshell ; then
 	echo "cannot unload a workspace from a workspace sub-shell"
 	return 1
     fi
@@ -680,6 +688,7 @@ _wksps_pop () {
     builtin exit &>/dev/null
 }
 #export -f _wksps_pop
+
 
 #-------------------------------
 # wksps_reload
@@ -692,7 +701,7 @@ _wksps_reload () {
     fi
 
     # Can only switch workspaces from the workspace bash root
-    if [ $WORKSPACE_BASH_ROOT_PID != $$ ]; then
+    if wksps_is_subshell ; then
 	echo "cannot reload workspace: unable to unload workspace from a workspace sub-shell"
 	return 1
     fi
@@ -859,7 +868,7 @@ _wksps_chgws () {
             # Switch workspaces means exiting the current shell but setting up so
 	    # the parent shell will startup the new workspace.
 	    # But can only switch workspaces from the workspace bash root
-	    if [ $WORKSPACE_BASH_ROOT_PID != $$ ]; then
+	    if wksps_is_subshell ; then
 		echo "cannot switch workspaces: unable to unload workspace from a workspace sub-shell"
 		return 1
 	    fi
@@ -911,13 +920,24 @@ _wksps_delws () {
 
 #---------------------------------
 # wksps_load_if ()
-# Checks if no workspace is active and the current directory
-# is a workspace. If so then by default calls wspush to load the new
-# workspace, or optionally (the "-p" option) prompts the user.
+# Two checks:
+# 1) If we're in a sub-shell then source the workspace's on_enter.sh.
+# 2) if no workspace is active and the current directory is a workspace.
+#    If so then by default calls wspush to load the new workspace, or
+#    optionally (the "-p" option) prompts the user.
 #---------------------------------
 _wksps_load_if () {
+    # If already in a workspace then check if a subshell needs to source on_enter.sh
+    if wksps_is_loaded ; then
+	if ! wksps_is_subshell ; then
+	    return 0
+	fi
+	_wksps_load_ws_on_enter_script "$WORKSPACE_DIR"
+	return 0
+    fi
+
+    # If not currently in a workspace then load if
     local currdir=$(pwd)
-    [ ! -z "$WORKSPACE_ID" ] && return
     local options="$*"
     if ! _wksps_is_ws "$currdir" ; then return 0; fi
 
@@ -934,6 +954,7 @@ _wksps_load_if () {
     _wksps_push "$currdir"
 }
 #export -f _wksps_load_if
+
 
 #---------------------------------
 # wksps_cleanup ()
@@ -1231,12 +1252,29 @@ _wksps_wscd_autocomplete () {
 #------------------------------
 # returns true (0) if any workspace is loaded and false (1) otherwise.
 #------------------------------
-wksps_is_loaded(){
-    if [ "$WORKSPACE_ID" == "" ]; then
+wksps_is_loaded () {
+    [ ! -z ${WORKSPACE_ID+"XXX"} ]
+}
+
+#-------------------------------
+# Return true if the current shell is a workspace sub-shell
+#-------------------------------
+wksps_is_subshell () {
+    if ! wksps_is_loaded ; then
+	echo "error: call to wksps_is_subshell is only valid from a workspace shell"
 	return 1
     fi
-    return 0
+
+    # if WORKSPACE_BASH_ROOT_PID is not defined then it means that bash shell has been called
+    # but the temporary initialisation file hasn't initialised WORKSPACE_BASH_ROOT_PID. This means
+    # that it is a root shell.
+    if [ -z ${WORKSPACE_BASH_ROOT_PID+XXX} ]; then
+	return 1
+    fi
+    [ $WORKSPACE_BASH_ROOT_PID != $$ ]
 }
+
+
 
 #-------------------------------
 # Returns the number of active pids in the current workspace
