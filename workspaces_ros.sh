@@ -88,13 +88,13 @@ _wkspr_remove_active_catkin_ws(){
 # wkspr_prompt_catkin_ws - Prompt for a catkin workspace
 #-----------------------------------------
 _wkspr_prompt_catkin_ws(){
-    local count=$(find "${WKSPR_ROOT_DIR}" -maxdepth 1 -type d -printf '%f\n' | wc -l)
+    local count=$(find -L "${WKSPR_ROOT_DIR}" -maxdepth 1 -type d -printf '%f\n' | wc -l)
     count=$(($count-1))
     if [ $count == 0 ]; then
 	echo "No catkin workspaces in ${WKSPR_ROOT_DIR}"
 	return 1
     fi
-    local wksps=$(find "${WKSPR_ROOT_DIR}"/* -maxdepth 0 -type d -printf '%f\n' | xargs echo)
+    local wksps=$(find -L "${WKSPR_ROOT_DIR}"/* -maxdepth 0 -type d -printf '%f\n' | xargs echo)
     local wksps="$wksps <None>"
     local ros_wksp=$(prompt_choose ${wksps})
 
