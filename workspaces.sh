@@ -70,6 +70,11 @@
 #            modify the load_if function to detect if it is a sub-shell
 #            and if so to source the workspace's on_enter.sh.
 #
+# 20170518 - Added features to execute a given command as part of entering a
+#            workspace. Modified wksps_num_active_pids() to take an optional
+#            argument to check a particular workspace and not the current. Added
+#            function to find the workspace associated with a given file.
+#
 #----------------------------------------------------------------------
 mbimport prompts
 
@@ -291,9 +296,13 @@ _wksps_num_active_pids ()
 	return 0
     fi
 
+    # Read the list of pids - checking against running processes
     while read pid; do
 	if [[ $pid =~ [0-9]+ ]]; then
-	    activelist[${#activelist[*]}]=$pid
+	    local result=$(ps --no-headers $pid)
+	    if [ "$result" != "" ]; then
+		activelist[${#activelist[*]}]=$pid
+	    fi
 	fi
     done < "$pidsfile"
     echo "${#activelist[*]}"
@@ -371,7 +380,7 @@ EOF
     else
 	cat > "$on_exit" <<EOF
 # Workspace clean file. Can use the WORKSPACE_ID, WORKSPACE_DIR variables
-# as in the startup file. 
+# as in the startup file.
 # Note: 1) any configuration that was setup in the on_enter.sh script will
 #          be gone by the time we get here.
 #       2) The "wksps_num_active_pids" returns the number of active shells
@@ -581,10 +590,12 @@ _wksps_get_all (){
 
 _wksps_push () {
     local currdir=$(pwd)
-    local newws=$(readlink -m "$*")
+    local newws=$(readlink -m "$1")
     local unsetlevel=0
     local savedwstmpfile="$WORKSPACE_TMPFILE"
     local cleanupfn
+    shift
+    local execcmd="$*"
 
     # Save state of the current environment so we can
     # recover properly after the workspace is popped
@@ -609,6 +620,10 @@ _wksps_push () {
     echo "cd \"$newws\"" >> $WORKSPACE_TMPFILE
     echo "_wksps_load_ws ." >>  $WORKSPACE_TMPFILE
     echo "_wksps_set_ws_cleanup_fn \"exit\"" >> $WORKSPACE_TMPFILE
+    if [ "$execcmd" != "" ]; then              # the optional command
+	echo "$execcmd" >>  $WORKSPACE_TMPFILE
+    fi
+
 
     # Set up WORKSPACE_ID  and WORKSPACE_DIR
     export WORKSPACE_ID=$(_wksps_get_ws_id "$newws")
@@ -830,14 +845,15 @@ _wksps_mk_prompt (){
 #export -f _wksps_mk_prompt
 
 #-------------------------------
-# wksps_chgws () - change workspace
+# wksps_chgws ([workspace] [command]) - change workspace
 # Goto/change/create the workspace
 # - if no arguments then go to the current workspace
+# - second argument is an optional command to run within the workspace
 #-------------------------------
 _wksps_chgws () {
     local goto_ws=1
-    local ws="$*"
-    local absws=$(readlink -m "$*")
+    local ws="$1"
+    local absws=$(readlink -m "$1")
 
    # No arguments
     if [ $# -eq 0 ]; then
@@ -859,9 +875,10 @@ _wksps_chgws () {
 #	    goto_ws=0
 #	fi
     fi
+
     if [ $goto_ws -eq 1 ]; then
 	if [ "$WORKSPACE_ID" == "" ]; then                          #  Load new workspace
-	    _wksps_push "$absws"
+	    _wksps_push "$absws" $(_wksps_args 2 "$@")
 	elif [ -f "$absws/.workspace/id.$WORKSPACE_ID" ]; then      # Same workspace so simply cd
 	    builtin cd "$WORKSPACE_DIR"
 	else
@@ -1274,18 +1291,45 @@ wksps_is_subshell () {
     [ $WORKSPACE_BASH_ROOT_PID != $$ ]
 }
 
-
+#-------------------------------
+# wksps_get_owner <file/directory>
+# Returns the parent workspace to which a file belongs or empty string.
+#-------------------------------
+wksps_get_owner () {
+    local dname=$(_wksps_get_abs_name "$*")
+    if [ ! -d $dname ]; then
+	dname=$(dirname "$dname")
+    fi
+    while [ "$dname" != "/" ]; do
+	if _wksps_is_ws "$dname"; then
+	    echo "$dname"
+	    return
+	fi
+	dname=$(dirname "$dname")
+    done
+    echo ""
+}
 
 #-------------------------------
-# Returns the number of active pids in the current workspace
+# Returns the number of active pids in the workspace
+# wksps_num_active_pids([workspace_dir]) - default to current workspace.
 #-------------------------------
-
 wksps_num_active_pids ()
 {
-    if [ "$WORKSPACE_DIR" == "" ] || ! _wksps_is_ws "$WORKSPACE_DIR" ; then
-	echo "error: no active workspace"
+    local ws="$*"
+    if [ "$ws" == "" ]; then
+	if [ "$WORKSPACE_DIR" == "" ]; then
+	    echo "error: no active workspace"
+	    return 1
+	fi
+	ws="$WORKSPACE_DIR"
     fi
-    local npids=$(_wksps_num_active_pids "$WORKSPACE_DIR")
+    if ! _wksps_is_ws "$ws" ; then
+	echo "error: invalid workspace: $ws"
+	return 1
+    fi
+    local absws=$(_wksps_get_abs_name "$ws")
+    local npids=$(_wksps_num_active_pids "$absws")
     echo $npids
 }
 #export -f wksps_num_active_pids
