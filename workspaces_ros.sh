@@ -15,9 +15,13 @@
 # This stores the default ROS catkin workspace to load for subsequent instances.
 #
 # Environment variables used:
+# - WKSPR_ROS_INSTALL_DIR - Can be used to overide the computed ROS install
+#                           directory (which is "/opt/ros/${ROS_VERSION}").
 # - WKSPR_ROOT_DIR - The root directory containing the various catkin workspaces
-# - WKSPR_DEFAULT_ROOT_DIR - A default for the root directory containing the various catkin workspaces
-# - WKSPR_ACTIVE_CATKIN_WKSP_FILE - The name of the file containing the active catkin workspace
+# - WKSPR_DEFAULT_ROOT_DIR - A default for the root directory containing
+#                            the various catkin workspaces.
+# - WKSPR_ACTIVE_CATKIN_WKSP_FILE - The name of the file containing the active
+#                                   catkin workspace.
 # - WKSPR_ACTIVE_CATKIN_WKSP - The active catkin workspace
 #
 # -------------------------------------------------------------------------
@@ -60,8 +64,12 @@ _wkspr_init(){
 _wkspr_load_catkin_ws(){
     local ros_wksp="$1"
     local ros_wksp_dir="${WKSPR_ROOT_DIR}/${ros_wksp}"
-    local ros_install="/opt/ros/${ROS_VERSION}/setup.bash"
+    local ros_install_dir="${WKSPR_ROS_INSTALL_DIR}"
     local ros_local="${ros_wksp_dir}/devel/setup.bash"
+    if [ "$ros_install_dir" == "" ]; then
+	ros_install_dir="/opt/ros/${ROS_VERSION}"
+    fi
+    local ros_install="$ros_install_dir/setup.bash"
 
     if [ -f $ros_local ]; then
 	echo "Sourcing ${ros_local}"
@@ -69,7 +77,7 @@ _wkspr_load_catkin_ws(){
 	cd "${ros_wksp_dir}"
     else
 	echo "Catkin workspace '$ros_wksp' is not setup"
-	echo "Sourcing the ROS installation instead"
+	echo "Sourcing the ROS installation: $ros_install"
 	source $ros_install
     fi
 }
