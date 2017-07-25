@@ -1,7 +1,9 @@
 #-------------------------------------------------------------------------
 # logging.sh
 #
-# Provides (very) basic logging.
+# Provides (very) basic logging. For more advanced logging try:
+# - https://sites.google.com/a/forestent.com/projects/log4sh
+# - or the logger command for a syslog environment.
 #
 # Readonly variables (pseudo-constants) for logging level:
 #    LOGGING_ERROR, LOGGING_WARN, LOGGING_INFO, LOGGING_DEBUG.
@@ -119,7 +121,7 @@ _logging_error_file(){
     if _logging_ok_to_log_file $LOGGING_ERROR ; then
 	local message=$@
 	local now=$(_logging_now)
-	echo "ERROR: $now $message"
+	echo "ERROR: $now $message" >> ${LOGGING_LOG_FILE}
     fi
 }
 
@@ -127,7 +129,7 @@ _logging_warn_file(){
     if _logging_ok_to_log_file $LOGGING_WARN ; then
 	local message=$@
 	local now=$(_logging_now)
-	echo "WARN:  $now $message"
+	echo "WARN:  $now $message"  >> ${LOGGING_LOG_FILE}
     fi
 }
 
@@ -135,7 +137,7 @@ _logging_info_file(){
     if _logging_ok_to_log_file $LOGGING_INFO ; then
 	local message=$@
 	local now=$(_logging_now)
-	echo "INFO:  $now $message"
+	echo "INFO:  $now $message" >> ${LOGGING_LOG_FILE}
     fi
 }
 
@@ -143,7 +145,7 @@ _logging_debug_file(){
     if _logging_ok_to_log_file $LOGGING_DEBUG ; then
 	local message=$@
 	local now=$(_logging_now)
-	echo "DEBUG: $now $message"
+	echo "DEBUG: $now $message" >> ${LOGGING_LOG_FILE}
     fi
 }
 
