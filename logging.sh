@@ -151,22 +151,22 @@ _logging_debug_file(){
 # Now the user callable functions
 #-----------------------------------------
 
-logging_error(){
+log_error(){
     _logging_error_file $@
     _logging_error_stderr $@
 }
 
-logging_warn(){
+log_warn(){
     _logging_warn_file $@
     _logging_warn_stderr $@
 }
 
-logging_info(){
+log_info(){
     _logging_info_file $@
     _logging_info_stderr $@
 }
 
-logging_debug(){
+log_debug(){
     _logging_debug_file $@
     _logging_debug_stderr $@
 }
