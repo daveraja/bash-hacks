@@ -68,6 +68,20 @@ prompt_yesno () {
     echo $(_prompt_normalise_yesno "$answer")
 }
 
+#----------------------------------------------------
+# prompt_run <statement>
+# A protected way to run a command by forcing the user to
+# answer a yes/no prompt.
+#----------------------------------------------------
+prompt_run () {
+    local question="Run command \"$@\" [Y/n]?"
+    local result=$(prompt_yesno "$question" "y")
+    if [ "$result" == "y" ]; then
+	$@
+    fi
+}
+
+
 
 #----------------------------------------------------
 # prompt_choose
