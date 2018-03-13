@@ -75,8 +75,20 @@
 #            argument to check a particular workspace and not the current. Added
 #            function to find the workspace associated with a given file.
 #
+# 20180313 - Extend the .workspaces directory to include the ability to store
+#            archived projects. The .workspaces directory now includes 'archive'
+#            and 'current' sub-directories. The symlinks have now been moved
+#            to the 'current' sub-directory.
 #----------------------------------------------------------------------
 mbimport prompts
+
+#-----------------------------------------------------------------------
+# Some constants
+#-----------------------------------------------------------------------
+CONST_WORKSPACES_DIR="$HOME/.workspaces"
+CONST_WORKSPACES_CURRENT_DIR="$CONST_WORKSPACES_DIR/current"
+CONST_WORKSPACES_ARCHIVE_DIR="$CONST_WORKSPACES_DIR/archive"
+
 
 #-----------------------------------------------------------------------
 # Generic internal functions
@@ -87,9 +99,14 @@ mbimport prompts
 # - Call this to make sure things are setup correctly
 #------------------------------
 _wksps_init (){
-    if [ ! -d ~/.workspaces ]; then
-	echo "Creating workspaces link directory: ~/.workspaces"
-	mkdir ~/.workspaces
+    if [ ! -d "$CONST_WORKSPACES_DIR" ]; then
+	echo "Creating workspaces link directory: $CONST_WORKSPACES_DIR"
+	mkdir -p "$CONST_WORKSPACES_DIR"
+	if [ ! -d "$CONST_WORKSPACES_CURRENT_DIR" ]; then
+	    echo "Missing $CONST_WORKSPACES_CURRENT_DIR directory! Upgrade needed"
+	fi
+	mkdir -p "$CONST_WORKSPACES_CURRENT_DIR"
+	mkdir -p "$CONST_WORKSPACES_ARCHIVE_DIR"
     fi
 }
 #export -f _wksps_init
@@ -427,7 +444,7 @@ _wksps_create_ws_link (){
 	echo "error: not a workspace, missing id file: $ws"
 	return
     fi
-    ln -s "$absws" ~/.workspaces/$id
+    ln -s "$absws" $CONST_WORKSPACES_CURRENT_DIR/$id
 }
 #export -f _wksps_create_ws_link
 
@@ -440,7 +457,7 @@ _wksps_remove_ws_link (){
 	echo "error: not a workspace, missing id file: $ws"
 	return
     fi
-    rm -f ~/.workspaces/$id
+    rm -f $CONST_WORKSPACES_CURRENT_DIR/$id
 }
 #export -f _wksps_remove_ws_link
 
@@ -451,7 +468,7 @@ _wksps_remove_ws_link (){
 _wksps_has_ws_link (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$*")
-    local found=$(ls -l ~/.workspaces/ | grep "$absws")
+    local found=$(ls -l $CONST_WORKSPACES_CURRENT_DIR/ | grep "$absws")
     [ "$found" != "" ]
 }
 #export -f _wksps_has_ws_link
@@ -568,7 +585,7 @@ _wksps_get_all (){
     local fn
     local ws
     WORKSPACES=()
-    for fn in ~/.workspaces/*; do
+    for fn in $CONST_WORKSPACES_CURRENT_DIR/*; do
 	if [ -h "$fn" ]; then
 	    ws=$(_wksps_get_tilda_name $(readlink "$fn"))
 	    WORKSPACES[${#WORKSPACES[@]}]="$ws"
@@ -766,7 +783,7 @@ _wksps_selws_prompt (){
     local prompt="$@"
 
     # Build the list of workspace symlinks that point to valid directories.
-    for fn in ~/.workspaces/*; do
+    for fn in $CONST_WORKSPACES_CURRENT_DIR/*; do
 	if [ -h "$fn" ] && [ -d "$fn" ] ; then
 	    wrksps_u[${#wrksps_u[@]}]=$(_wksps_get_tilda_name $(readlink "$fn"))
 	fi
@@ -979,7 +996,7 @@ _wksps_load_if () {
 # point to a valid directory then prompt the user to remove it.
 #---------------------------------
 _wksps_cleanup () {
-    for idfile in ~/.workspaces/*; do
+    for idfile in $CONST_WORKSPACES_CURRENT_DIR/*; do
 	if [ -h "$idfile" ]; then
 	    local absws=$(readlink -m "$idfile")
 	    local ws=$(_wksps_get_tilda_name "$absws")
