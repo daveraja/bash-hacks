@@ -1,35 +1,35 @@
 #----------------------------------------------------------------------
 # modules_boostrap.sh
 #
-# Provides a simple module concept for bash. This allows for an easy way 
-# to share code across many scripts by importing/loading modules. A module is 
-# simply a bash file in a known location with a name ending in ".sh". 
+# Provides a simple module concept for bash. This allows for an easy way
+# to share code across many scripts by importing/loading modules. A module is
+# simply a bash file in a known location with a name ending in ".sh".
 # The module_boostrap provides basic functions to simplify loading the module.
-# 
-# Use case: 
-# 
+#
+# Use case:
+#
 # 1) To reuse code in a shell script. For example, I have a bash function
-#    that checks my laptop's IP address to work out if I am at home or 
-#    in the office or on the road.  I want to use this function for 
-#    different purposes, such as control what data is copied as part of 
-#    a sync script and know whether or not to tunnel through SSH on a 
+#    that checks my laptop's IP address to work out if I am at home or
+#    in the office or on the road.  I want to use this function for
+#    different purposes, such as control what data is copied as part of
+#    a sync script and know whether or not to tunnel through SSH on a
 #    remote-desktop script.
 #
 # 2) I don't really want to polute my 'bin' directory with lots of support
 #    files so need to put these files in a different directory. But then
 #    I don't want to have to specify the path names in all my scripts.
 #
-# 3) Want to allow modules to depend on other modules. So need to make 
-#    sure that we only load a module once and don't get stuck in 
+# 3) Want to allow modules to depend on other modules. So need to make
+#    sure that we only load a module once and don't get stuck in
 #    circular dependencies.
-# 
+#
 # Usage:
 #     mbimport <module_name> [module_arguments]
 #
 #     mbforce <module_name> [module_arguments]
 #
 #     mbset_MODULE_PATH <newpath>
-#     
+#
 # A module name is restricted to the characters allowed for a bash
 # function or variable name. So stick to [a-zA-Z0-9_-] characters.
 #
@@ -59,19 +59,19 @@
 # sub-shells. But there may also be times when you don't want/need this.
 #
 # The question is, is it possible to re-use the same module for both cases?
-# If not the alternative is that it is up to the module itself to export 
+# If not the alternative is that it is up to the module itself to export
 # variables and functions. I guess could adopt a convention of having
-# a base module with no exports and then having a export version module 
-# which simply imports the base and adds some export statements. 
-# 
+# a base module with no exports and then having a export version module
+# which simply imports the base and adds some export statements.
+#
 # Toying with having an environment variable to control this behaviour.
-# The module loader will then pseudo-magically generate "export <varname>" 
-# and "export -f <funcname>" statements if necessary. 
-# 
+# The module loader will then pseudo-magically generate "export <varname>"
+# and "export -f <funcname>" statements if necessary.
+#
 # Not sure if this can be made to work nicely or if it would be too brittle.
-# 
+#
 # MODULE_NOEXPORT - By default both variables and functions in a module are
-#                exported, so inherited by sub-shells. If this environment 
+#                exported, so inherited by sub-shells. If this environment
 #                variable is set to a value other than 0 then the module
 #                variables and functions will not be exported (unless the
 #                module explicitly exports them itself).
@@ -107,7 +107,7 @@ _modules_is_module_loaded (){
 _modules_get_module_arguments (){
     local prt=0
     for opt in "$@"; do
-	if [ $prt -eq 0 ]; then 
+	if [ $prt -eq 0 ]; then
 	    prt=1
 	else
 	    echo $opt
@@ -164,7 +164,7 @@ _modules_varfuncs(){
     # Save the variable and function declarations
     declare -A prevar; declare -A prefunc
     for n in $(compgen -v); do prevar[$n]=1; done
-    for n in $(declare -F | sed -n 's/^declare\s\+.\+\s\+\(.*\)$/\1/p'); do 
+    for n in $(declare -F | sed -n 's/^declare\s\+.\+\s\+\(.*\)$/\1/p'); do
 	prefunc[$n]=1
     done
 
@@ -205,7 +205,7 @@ mbforce() {
     local args=$(_modules_get_module_arguments "$@")
 
     # Load up the module
-    source $modfilename "$args" 
+    source $modfilename "$args"
     if [ $? -eq 1 ]; then
 	echo "error: failed to load: $modfilename" 1>&2
 	return 1
@@ -239,15 +239,15 @@ mbset_MODULE_PATH (){
 	MODULE_PATH="$MODULE_PATH":"$newpath"
     else
 	MODULE_PATH="$newpath"
-    fi  
+    fi
     if [ "$MODULE_NOEXPORT" != "" ] || [ "$MODULE_NOEXPORT" == "0" ]; then
-	export MODULE_PATH    
+	export MODULE_PATH
     fi
 }
 
 
 #----------------------------------------------------------------------
-# Main 
+# Main
 #----------------------------------------------------------------------
 
 _modules_set_MODULE_PATH
