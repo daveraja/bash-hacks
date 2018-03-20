@@ -15,14 +15,14 @@
 #     - on_exit.sh   - file that is run on workspace exit
 #     - bash_history - use this file to maintain the bash history.
 #     - id.<NNNN>    - randomly generated unique identify for workspace.
-#     - pids.tmp     - temporary file containing process id of active
-#                      workspace shells.
 
 # New structure for ~/.workspaces directory:
 # - current/ - Contains symlinks to registered workspaces
 # - archive/ - Contains symlinks to registered archived workspaces.
 # - tmp/ - A temporary space for workspaces that are active.
 #          Each workspace has a sub-directory with its ID.
+#   - pids.tmp - temporary file containing process id of active
+#                workspace shells.
 #
 #
 #
