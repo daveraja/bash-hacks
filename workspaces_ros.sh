@@ -33,7 +33,7 @@ mbimport prompts
 # _wkspr_(un)setenv - set and unset default environment variables
 #-----------------------------------------
 _wkspr_setenv(){
-    export WKSPR_ACTIVE_CATKIN_WKSP_FILE=${WORKSPACE_DIR}/.workspace/ros.sh.tmp
+    export WKSPR_ACTIVE_CATKIN_WKSP_FILE=${WORKSPACE_TMP_DIR}/ros.sh.tmp
     export WKSPR_DEFAULT_ROOT_DIR=${WORKSPACE_DIR}/ros_wksps
 }
 

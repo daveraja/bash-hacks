@@ -17,10 +17,18 @@
 #     - id.<NNNN>    - randomly generated unique identify for workspace.
 #     - pids.tmp     - temporary file containing process id of active
 #                      workspace shells.
-# - ~/.workspaces - Contains symlinks to all registered workspaces
+
+# New structure for ~/.workspaces directory:
+# - current/ - Contains symlinks to registered workspaces
+# - archive/ - Contains symlinks to registered archived workspaces.
+# - tmp/ - A temporary space for workspaces that are active.
+#          Each workspace has a sub-directory with its ID.
+#
+#
 #
 # Environment variables that are used.
 # - WORKSPACE_DIR - A workspace HOME directory.
+# - WORKSPACE_TEMP_DIR - The workspace's temporary area (~/.workspaces/tmp/<ID>).
 # - WORKSPACE_ID - A workspace identifier, from the workspace id file.
 # - WORKSPACE_LEVEL - Level of stacked workspaces.
 # - WORKSPACE_TMPFILE - A temporary file for starting and cleaning up
@@ -88,6 +96,7 @@ mbimport prompts
 CONST_WORKSPACES_DIR="$HOME/.workspaces"
 CONST_WORKSPACES_CURRENT_DIR="$CONST_WORKSPACES_DIR/current"
 CONST_WORKSPACES_ARCHIVE_DIR="$CONST_WORKSPACES_DIR/archive"
+CONST_WORKSPACES_TMP_DIR="$CONST_WORKSPACES_DIR/tmp"
 
 
 #-----------------------------------------------------------------------
@@ -107,6 +116,7 @@ _wksps_init (){
 	fi
 	mkdir -p "$CONST_WORKSPACES_CURRENT_DIR"
 	mkdir -p "$CONST_WORKSPACES_ARCHIVE_DIR"
+	mkdir -p "$CONST_WORKSPACES_TMP_DIR"
     fi
 }
 #export -f _wksps_init
@@ -173,6 +183,21 @@ _wksps_args_is_option() {
 #-----------------------------------------------------------------------
 
 #------------------------------
+# _wksps_tmp_dir <workspace>
+#------------------------------
+
+_wksps_get_ws_tmp_dir (){
+    local ws="$*"
+    local id=$(_wksps_get_ws_id "$ws")
+    if [ "$id" == "" ]; then
+	echo "error: failed to find workspace ID"
+	return 1
+    fi
+    echo "$HOME/.workspaces/tmp/$id"
+    return 0
+}
+
+#------------------------------
 # _wksps_mk_local_ws_dir <workspace>
 #------------------------------
 
@@ -215,11 +240,13 @@ _wksps_get_ws_id (){
 
 _wksps_get_ws_pidsfile (){
     local ws="$*"
-    local pidsfile
+    local ws_tmp_dir=$(_wksps_get_ws_tmp_dir $ws)
+    echo "$ws_tmp_dir/pids.tmp"
+#    local pidsfile
 #    local id
 #    id=$(ls "$ws"/.workspace/id.* 2>/dev/null | head -n 1 | sed -n 's/^.*\.workspace\/id\.\(.*\)$/\1/p')
 #   echo "$ws/.workspace/id.$id"
-    echo "$ws/.workspace/pids.tmp"
+#    echo "$ws/.workspace/pids.tmp"
 }
 #export -f _wksps_get_ws_id
 
@@ -266,6 +293,7 @@ _wksps_cleanup_inactive_pids (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$ws")
     local pidsfile=$(_wksps_get_ws_pidsfile "$absws")
+    local wstmpdir=$(_wksps_get_ws_tmp_dir "$absws")
     local activelist=()
     local pid
 
@@ -289,8 +317,11 @@ _wksps_cleanup_inactive_pids (){
 	echo $pid >> "$pidsfile"
     done
 
-    # If the file is empty then remove it
-    [ ! -s "$pidsfile" ] && rm "$pidsfile"
+    # If the file is empty then remove it and the temporary dir
+    if [ ! -s "$pidsfile" ]; then
+	rm "$pidsfile"
+	rmdir "$wstmpdir"
+    fi
 }
 #export -f _wksps_cleanup_inactive_pids
 
@@ -520,6 +551,7 @@ _wksps_load_ws (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$*")
     local pidsfile=$(_wksps_get_ws_pidsfile "$absws")
+    local wstmpdir=$(_wksps_get_ws_tmp_dir "$absws")
 
     if ! _wksps_is_ws "$absws" ; then
 	echo "error: not a workspace: $ws"
@@ -534,7 +566,12 @@ _wksps_load_ws (){
 	export WORKSPACE_LEVEL=$(($WORKSPACE_LEVEL+1))
     fi
     export WORKSPACE_DIR="$absws"
+    export WORKSPACE_TMP_DIR="$wstmpdir"
 
+    if [ ! -d "$WORKSPACE_TMP_DIR" ]; then
+	mkdir -p "$WORKSPACE_TMP_DIR"
+    fi
+    
     # Add the current workspace bash shell to the active PID list
     echo "$WORKSPACE_BASH_ROOT_PID" >> "$pidsfile"
 
