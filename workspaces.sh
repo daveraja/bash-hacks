@@ -28,7 +28,7 @@
 #
 # Environment variables that are used.
 # - WORKSPACE_DIR - A workspace HOME directory.
-# - WORKSPACE_TEMP_DIR - The workspace's temporary area (~/.workspaces/tmp/<ID>).
+# - WORKSPACE_TMP_DIR - The workspace's temporary area (~/.workspaces/tmp/<ID>).
 # - WORKSPACE_ID - A workspace identifier, from the workspace id file.
 # - WORKSPACE_LEVEL - Level of stacked workspaces.
 # - WORKSPACE_TMPFILE - A temporary file for starting and cleaning up
@@ -89,6 +89,7 @@
 #            to the 'current' sub-directory.
 #----------------------------------------------------------------------
 mbimport prompts
+mbimport logging
 
 #-----------------------------------------------------------------------
 # Some constants
@@ -109,10 +110,10 @@ CONST_WORKSPACES_TMP_DIR="$CONST_WORKSPACES_DIR/tmp"
 #------------------------------
 _wksps_init (){
     if [ ! -d "$CONST_WORKSPACES_DIR" ]; then
-	echo "Creating workspaces link directory: $CONST_WORKSPACES_DIR"
+	log_info "Creating workspaces link directory: $CONST_WORKSPACES_DIR"
 	mkdir -p "$CONST_WORKSPACES_DIR"
 	if [ ! -d "$CONST_WORKSPACES_CURRENT_DIR" ]; then
-	    echo "Missing $CONST_WORKSPACES_CURRENT_DIR directory! Upgrade needed"
+	    log_error "Missing $CONST_WORKSPACES_CURRENT_DIR directory! Upgrade needed"
 	fi
 	mkdir -p "$CONST_WORKSPACES_CURRENT_DIR"
 	mkdir -p "$CONST_WORKSPACES_ARCHIVE_DIR"
@@ -190,7 +191,7 @@ _wksps_get_ws_tmp_dir (){
     local ws="$*"
     local id=$(_wksps_get_ws_id "$ws")
     if [ "$id" == "" ]; then
-	echo "error: failed to find workspace ID"
+	log_error "Failed to find workspace ID"
 	return 1
     fi
     echo "$HOME/.workspaces/tmp/$id"
@@ -205,7 +206,7 @@ _wksps_mk_local_ws_dir (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$*")
     if [ ! -d $absws ]; then
-	echo "error: not a directory: $ws"
+	log_error "Not a directory: $ws"
 	return 1
     fi
     if [ ! -d "$absws/.workspace" ]; then
@@ -256,7 +257,7 @@ _wksps_create_ws_id (){
     local id
     id=$(_wksps_get_ws_id "$ws")
     if [ "$id" != "" ]; then
-	echo "warning: workspace already contains an ID file: $ws"
+	log_warn "Workspace already contains an ID file: $ws"
 	return 0
     fi
     id=$(_wksps_random_id)
@@ -275,7 +276,7 @@ _wksps_load_ws_id (){
     id=$(_wksps_get_ws_id "$ws")
     if [ "$id" == "" ]; then
 	if ! _wksps_create_ws_id "$ws"; then
-	    echo "error: failed to create and load a workspace ID file"
+	    log_error "Failed to create and load a workspace ID file"
 	    return 1
 	fi
 	id=$(_wksps_get_ws_id "$ws")
@@ -367,7 +368,7 @@ _wksps_create_ws_history (){
     local ws="$*"
     local wshistory="$*/.workspace/bash_history"
     if [ -f "$wshistory" ]; then
-	echo "warning: workspace already contains a history file: $ws"
+	log_warn "Workspace already contains a history file: $ws"
 	return 0
     fi
     _wksps_mk_local_ws_dir "$ws"
@@ -408,7 +409,7 @@ _wksps_create_ws_scripts (){
 
     _wksps_mk_local_ws_dir "$ws"
     if [ -f "$on_enter" ]; then
-	echo "warning: workspace on_enter script already exists in: $ws"
+	log_warn "Workspace on_enter script already exists in: $ws"
     else
 	cat > "$on_enter" <<EOF
 # Workspace configuration file.
@@ -424,7 +425,7 @@ echo "Setting up workspace[\$npids]..."
 EOF
     fi
     if [ -f "$on_exit" ]; then
-	echo "warning: workspace on_exit script already exists in: $ws"
+	log_warn "Workspace on_exit script already exists in: $ws"
     else
 	cat > "$on_exit" <<EOF
 # Workspace clean file. Can use the WORKSPACE_ID, WORKSPACE_DIR variables
@@ -472,7 +473,7 @@ _wksps_create_ws_link (){
     id=$(_wksps_get_ws_id "$ws")
 
     if [ "$id" == "" ]; then
-	echo "error: not a workspace, missing id file: $ws"
+	log_error "Not a workspace, missing id file: $ws"
 	return
     fi
     ln -s "$absws" $CONST_WORKSPACES_CURRENT_DIR/$id
@@ -485,7 +486,7 @@ _wksps_remove_ws_link (){
     id=$(_wksps_get_ws_id "$ws")
 
     if [ "$id" == "" ]; then
-	echo "error: not a workspace, missing id file: $ws"
+	log_error "Not a workspace, missing id file: $ws"
 	return
     fi
     rm -f $CONST_WORKSPACES_CURRENT_DIR/$id
@@ -516,7 +517,7 @@ _wksps_is_ws (){
     local id=$(_wksps_get_ws_id "$absws")
 
     if [ ! -d "$absws" ]; then
-	echo "warning: directory does not exist: $ws"
+	log_warn "Directory does not exist: $ws"
 	return 1
     fi
 
@@ -554,7 +555,7 @@ _wksps_load_ws (){
     local wstmpdir=$(_wksps_get_ws_tmp_dir "$absws")
 
     if ! _wksps_is_ws "$absws" ; then
-	echo "error: not a workspace: $ws"
+	log_error "Not a workspace: $ws"
 	return 1
     fi
 
@@ -595,7 +596,7 @@ _wksps_load_ws (){
 #-------------------------------
 _wksps_set_ws_cleanup_fn (){
     if [ "$WORKSPACE_TMPFILE" == "" ]; then
-	echo "error: no WORKSPACE_TMPFILE variable defined"
+	log_error "No WORKSPACE_TMPFILE variable defined"
 	return 1
     fi
 
@@ -660,7 +661,7 @@ _wksps_push () {
 
     # Make sure that we are talking about a workspace
     if ! _wksps_is_ws "$newws" ; then
-	echo "error: not a workspace: $newws"
+	log_error "Not a workspace: $newws"
 	return
     fi
 
@@ -745,12 +746,12 @@ _wksps_push () {
 #-------------------------------
 _wksps_pop () {
     if [ -z "$WORKSPACE_LEVEL" ] || [ $WORKSPACE_LEVEL -eq 0 ]; then
-	echo "no loaded workspaces" 1>&2
+	log_error "No loaded workspaces"
 	return 1
     fi
     # Can only unload from a workspace bash root
     if wksps_is_subshell ; then
-	echo "cannot unload a workspace from a workspace sub-shell"
+	log_error "Cannot unload a workspace from a workspace sub-shell"
 	return 1
     fi
     _wksps_set_ws_cleanup_fn ":"
@@ -765,16 +766,16 @@ _wksps_pop () {
 #-------------------------------
 _wksps_reload () {
     if [ "$WORKSPACE_DIR" == "" ]; then
-	echo "No workspace loaded" 1>&2
+	log_error "No workspace loaded"
 	return 1
     fi
 
     # Can only switch workspaces from the workspace bash root
     if wksps_is_subshell ; then
-	echo "cannot reload workspace: unable to unload workspace from a workspace sub-shell"
+	log_error "Cannot reload workspace: unable to unload workspace from a workspace sub-shell"
 	return 1
     fi
-    echo "Reloading workspace..." 1>&2
+    log_info "Reloading workspace..."
     # Reload workspace means exiting the current shell also but setting up so
     # the parent shell will re-startup the workspace.
     _wksps_set_ws_cleanup_fn "_wksps_push \"$WORKSPACE_DIR"\"
@@ -789,7 +790,7 @@ _wksps_mk (){
     local ws="$*"
 
     if _wksps_is_ws "$ws" ; then
-	echo "error: already a workspace: $ws"
+	log_error "Already a workspace: $ws"
 	return 1
     fi
     _wksps_create_ws_scripts "$ws"
@@ -880,7 +881,7 @@ _wksps_mk_prompt (){
     local absws=$(_wksps_get_abs_name "$ws")
 
     if _wksps_is_ws "$absws" ; then
-	echo "error: already a workspace: $absws"
+	log_error "Already a workspace: $absws"
 	return 1
     fi
 
@@ -890,7 +891,7 @@ _wksps_mk_prompt (){
 	*) go=0 ;;
     esac
     if [ $go -eq 1 ]; then
-	echo "Creating workspace: $absws"
+	log_info "Creating workspace: $absws"
 	_wksps_mk "$absws"
 	return 0
     fi
@@ -920,9 +921,9 @@ _wksps_chgws () {
 	builtin cd "$WORKSPACE_DIR"
 	return
     elif ! _wksps_is_ws "$absws" ; then
-	echo "error: not a workspace: $ws"
+	log_error "Not a workspace: $ws"
 	if [ -d "$ws" ]; then
-	    echo "use 'wksp add' to make this directory a workspace"
+	    log_info "Use 'wksp add' to make this directory a workspace"
 	fi
 	return 1
 #	if ! _wksps_mk_prompt "$ws" ; then
@@ -940,7 +941,7 @@ _wksps_chgws () {
 	    # the parent shell will startup the new workspace.
 	    # But can only switch workspaces from the workspace bash root
 	    if wksps_is_subshell ; then
-		echo "cannot switch workspaces: unable to unload workspace from a workspace sub-shell"
+		log_error "Cannot switch workspaces: unable to unload workspace from a workspace sub-shell"
 		return 1
 	    fi
 #	    echo "switching workspaces..."
@@ -975,16 +976,16 @@ _wksps_delws () {
     local ws="$*"
 
     if ! _wksps_is_ws "$ws" ; then
-	echo "error: not a workspace: $ws"
+	log_error "Not a workspace: $ws"
 	return 1
     fi
     if _wksps_in_ws "$ws"; then
-	echo "error: must unload before deleting the currently loaded workspace: $ws"
+	log_error "Must unload before deleting the currently loaded workspace: $ws"
 	return 1
     fi
 
     _wksps_remove_ws_link "$ws"
-    echo "workspace link has been deleted. Please delete directory to fully remove data: $ws"
+    log_info "Workspace link has been deleted. Please delete directory to fully remove data: $ws"
     return 0
 }
 #export -f _wksps_delws
@@ -1013,12 +1014,12 @@ _wksps_load_if () {
     if ! _wksps_is_ws "$currdir" ; then return 0; fi
 
     if [ "$options" != "-p" ] && [ "$options" != "" ]; then
-	echo "error: Invalid options '$options' for load_if"
+	log_error "Invalid options '$options' for load_if"
 	return 1
     fi
     # prompt if we really want to load the workspace
     if [ "$options" == "-p" ]; then
-	echo "Current directory: $currdir"
+	log_info "Current directory: $currdir"
 	local res=$(prompt_yesno "Load workspace in this directory (Y/n)" y)
 	[ "$res" == "n" ] && return 0
     fi
@@ -1041,13 +1042,13 @@ _wksps_cleanup () {
 	    # Check if we have a deletion candiate - prompt to delete
 	    if [ ! -d "$absws" ] || [ ! -d "$absws/.workspace" ] ; then
 		if [ -d "$absws" ] && [ ! -d "$absws/.workspace" ] ; then
-		    echo "Directory exists but is not a valid workspace: $ws"
+		    log_warn "Directory exists but is not a valid workspace: $ws"
 		elif [ ! -d "$absws" ] ; then
-		    echo "Directory does not exists: $ws"
+		    log_warn "Directory does not exists: $ws"
 		fi
 		local res=$(prompt_yesno "Do you want to delete this workspace link (y/N)" n)
 		if [ "$res" == "y" ]; then
-		    echo "Removing stale workspace link: $ws"
+		    log_info "Removing stale workspace link: $ws"
 		    rm -f $idfile
 		fi
 	    fi
@@ -1062,7 +1063,7 @@ _wksps_cleanup () {
 #---------------------------------
 _wksps_ls () {
     if [ "$WORKSPACE_DIR" == "" ]; then
-	echo "WORKSPACE_DIR is not set" 1>&2
+	log_error "WORKSPACE_DIR is not set"
 	return 1
     fi
     pushd "$WORKSPACE_DIR" 1>&2 > /dev/null
@@ -1074,7 +1075,7 @@ _wksps_ls () {
 _wksps_cd () {
     local dir="$*"
     if [ "$WORKSPACE_DIR" == "" ]; then
-	echo "WORKSPACE_DIR is not set" 1>&2
+	log_error "WORKSPACE_DIR is not set"
 	return 1
     fi
     if [[ "$dir" =~ ^/ ]] || [[ "$dir" =~ ^~ ]] ; then
@@ -1095,11 +1096,11 @@ _wksps_cfg (){
     local wsdir="$WORKSPACE_DIR/.workspace"
     local editor=$EDITOR
     if [ "$ws" == "" ] && [ "$WORKSPACE_DIR" == "" ]; then
-	echo "error: no workspace has been specified or loaded" 1>&2
+	log_error "No workspace has been specified or loaded"
 	return 1
     elif [ "$ws" != "" ]; then
 	if ! _wksps_is_ws "$ws" ; then
-	    echo "error: $ws is not a valid workspace" 1>&2
+	    log_error "$ws is not a valid workspace"
 	    return 1
 	fi
 	wsdir="$ws/.workspace"
@@ -1398,7 +1399,7 @@ wksps_hook_on_enter ()
 {
     local hookname="$1"
     if [ "$(declare -F $hookname)" == "" ]; then
-	echo "error: invalid function callback: $hookname" 1>&2
+	log_error "Invalid function callback: $hookname"
 	return 1
     fi
     WORKSPACES_HOOK_ON_ENTER[${#WORKSPACES_HOOK_ON_ENTER[@]}]=$hookname
@@ -1414,7 +1415,7 @@ wksps_hook_on_exit ()
 {
     local hookname="$1"
     if [ "$(declare -F $hookname)" == "" ]; then
-	echo "error: invalid function callback: $hookname" 1>&2
+	log_error "Invalid function callback: $hookname"
 	return 1
     fi
     WORKSPACES_HOOK_ON_EXIT[${#WORKSPACES_HOOK_ON_EXIT[@]}]=$hookname
