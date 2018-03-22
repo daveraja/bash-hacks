@@ -16,7 +16,7 @@
 #     - bash_history - use this file to maintain the bash history.
 #     - id.<NNNN>    - randomly generated unique identify for workspace.
 
-# New structure for ~/.workspaces directory:
+# Structure for ~/.workspaces directory:
 # - current/ - Contains symlinks to registered workspaces
 # - archive/ - Contains symlinks to registered archived workspaces.
 # - tmp/ - A temporary space for workspaces that are active.
@@ -24,19 +24,27 @@
 #   - pids.tmp - temporary file containing process id of active
 #                workspace shells.
 #
+# Environment variables to override default module behaviour:
 #
+# - WORKSPACES_METADATA_DIR - Where to put the meta-data for the workspaces
+#                             module. Defaults to ~/.workspaces/
 #
-# Environment variables that are used.
+# Environment variables that can be read by user from within a workspace:
+#
 # - WORKSPACE_DIR - A workspace HOME directory.
-# - WORKSPACE_TMP_DIR - The workspace's temporary area (~/.workspaces/tmp/<ID>).
+# - WORKSPACE_TMP_DIR - The workspace's temporary area
+#                       (typically set to $WORKSPACES_METADATA_DIR/tmp/<ID>).
 # - WORKSPACE_ID - A workspace identifier, from the workspace id file.
-# - WORKSPACE_LEVEL - Level of stacked workspaces.
-# - WORKSPACE_TMPFILE - A temporary file for starting and cleaning up
+#
+# Environment variables that are for internal use of the module:
+#
+# - _WORKSPACE_LEVEL - Level of stacked workspaces.
+# - _WORKSPACE_TMPFILE - A temporary file for starting and cleaning up
 #                       stacked workspace.
-# - WORKSPACE_BASH_ROOT_PID - The PID of the workspace root.
-# - WORKSPACES_HOOK_ON_ENTER - An array of handlers to be called
+# - _WORKSPACE_BASH_ROOT_PID - The PID of the workspace root.
+# - _WORKSPACES_HOOK_ON_ENTER - An array of handlers to be called
 #                              before on_enter.sh is run.
-# - WORKSPACES_HOOK_ON_EXIT - An array of handlers to be called
+# - _WORKSPACES_HOOK_ON_EXIT - An array of handlers to be called
 #                             after on_exit.sh has been run.
 #
 # The idea is to maintain symlinks to workspaces so that we can
@@ -90,37 +98,45 @@
 #----------------------------------------------------------------------
 mbimport prompts
 mbimport logging
+mbimport misc_functions
 
 #-----------------------------------------------------------------------
-# Some constants
+# Set the parameters.
+# If WORKSPACES_METADATA_DIR is not set then use "$HOME/.workspaces"
 #-----------------------------------------------------------------------
-CONST_WORKSPACES_DIR="$HOME/.workspaces"
-CONST_WORKSPACES_CURRENT_DIR="$CONST_WORKSPACES_DIR/current"
-CONST_WORKSPACES_ARCHIVE_DIR="$CONST_WORKSPACES_DIR/archive"
-CONST_WORKSPACES_TMP_DIR="$CONST_WORKSPACES_DIR/tmp"
 
-
-#-----------------------------------------------------------------------
-# Generic internal functions
-#-----------------------------------------------------------------------
+_wksps_set_env (){
+    if [ "$WORKSPACES_METADATA_DIR" == "" ]; then
+	export WORKSPACES_METADATA_DIR="$HOME/.workspaces"
+    fi
+    export _WORKSPACES_SYMLINKS_DIR="$WORKSPACES_METADATA_DIR/links"
+    export _WORKSPACES_TMP_DIR="$WORKSPACES_METADATA_DIR/tmp"
+}
 
 #------------------------------
 # _wksps_init
 # - Call this to make sure things are setup correctly
 #------------------------------
 _wksps_init (){
-    if [ ! -d "$CONST_WORKSPACES_DIR" ]; then
-	log_info "Creating workspaces link directory: $CONST_WORKSPACES_DIR"
-	mkdir -p "$CONST_WORKSPACES_DIR"
-	if [ ! -d "$CONST_WORKSPACES_CURRENT_DIR" ]; then
-	    log_error "Missing $CONST_WORKSPACES_CURRENT_DIR directory! Upgrade needed"
-	fi
-	mkdir -p "$CONST_WORKSPACES_CURRENT_DIR"
-	mkdir -p "$CONST_WORKSPACES_ARCHIVE_DIR"
-	mkdir -p "$CONST_WORKSPACES_TMP_DIR"
+    if [ ! -d "$WORKSPACES_METADATA_DIR" ]; then
+	log_info "Creating workspaces metadata directory: $WORKSPACES_METADATA_DIR"
+	mkdir -p "$WORKSPACES_METADATA_DIR"
+	mkdir -p "$_WORKSPACES_SYMLINKS_DIR"
+	mkdir -p "$_WORKSPACES_TMP_DIR"
+    fi
+    if [ ! -d "$_WORKSPACES_SYMLINKS_DIR" ]; then
+	log_info "Creating workspaces symbolic links directory: $_WORKSPACES_SYMLINKS_DIR"
+	mkdir -p "$_WORKSPACES_SYMLINKS_DIR"
+    fi
+    if [ ! -d "$_WORKSPACES_TMP_DIR" ]; then
+	log_info "Creating workspaces temp directory: $_WORKSPACES_SYMLINKS_DIR"
+	mkdir -p "$_WORKSPACES_TMP_DIR"
     fi
 }
-#export -f _wksps_init
+
+#-----------------------------------------------------------------------
+# Generic internal functions
+#-----------------------------------------------------------------------
 
 #------------------------------
 # _wksps_get_abs_name <directory>
@@ -130,20 +146,16 @@ _wksps_init (){
 
 _wksps_get_abs_name (){
     local cleaned=$(echo "$*" | sed -e 's!^~\(.*\)$!'"$HOME"'/\1!')
-#    local absws=$(readlink -m "$*")
     local absws=$(readlink -m "$cleaned")
     echo "$absws"
 }
-#export -f _wksps_get_abs_name
 
 _wksps_get_tilda_name (){
     local absws=$(readlink -m "$*")
-    local cleanws
-
-    cleanws=$(echo "$absws" | sed -e 's!^'"$HOME"'\(.*\)$!~\1!')
+    local cleanws=$(echo "$absws" | sed -e 's!^'"$HOME"'\(.*\)$!~\1!')
     echo "$cleanws"
 }
-#export -f _wksps_get_tilda_name
+
 
 #------------------------------
 # _wksps_args
@@ -194,7 +206,7 @@ _wksps_get_ws_tmp_dir (){
 	log_error "Failed to find workspace ID"
 	return 1
     fi
-    echo "$HOME/.workspaces/tmp/$id"
+    echo "$_WORKSPACES_TMP_DIR/$id"
     return 0
 }
 
@@ -229,7 +241,7 @@ _wksps_random_id (){
     local r2=$(printf "%05d" $RANDOM)
     echo "$r1$r2"
 }
-#export -f _wksps_random_id
+
 
 _wksps_get_ws_id (){
     local ws="$*"
@@ -237,20 +249,14 @@ _wksps_get_ws_id (){
     id=$(ls "$ws"/.workspace/id.* 2>/dev/null | head -n 1 | sed -n 's/^.*\.workspace\/id\.\(.*\)$/\1/p')
     echo "$id"
 }
-#export -f _wksps_get_ws_id
+
+
 
 _wksps_get_ws_pidsfile (){
     local ws="$*"
     local ws_tmp_dir=$(_wksps_get_ws_tmp_dir $ws)
     echo "$ws_tmp_dir/pids.tmp"
-#    local pidsfile
-#    local id
-#    id=$(ls "$ws"/.workspace/id.* 2>/dev/null | head -n 1 | sed -n 's/^.*\.workspace\/id\.\(.*\)$/\1/p')
-#   echo "$ws/.workspace/id.$id"
-#    echo "$ws/.workspace/pids.tmp"
 }
-#export -f _wksps_get_ws_id
-
 
 _wksps_create_ws_id (){
     local ws="$*"
@@ -284,7 +290,7 @@ _wksps_load_ws_id (){
     export WORKSPACE_ID=$id
     return 0
 }
-#export -f _wksps_load_ws_id
+
 
 #-------------------------------
 # _wksps_cleanup_inactive_pids ()
@@ -356,7 +362,6 @@ _wksps_num_active_pids ()
     done < "$pidsfile"
     echo "${#activelist[*]}"
 }
-#export -f _wksps_num_active_pids
 
 #------------------------------
 # _wksps_create_ws_history, _wksps_load_ws_history <workspace>
@@ -476,7 +481,7 @@ _wksps_create_ws_link (){
 	log_error "Not a workspace, missing id file: $ws"
 	return
     fi
-    ln -s "$absws" $CONST_WORKSPACES_CURRENT_DIR/$id
+    ln -s "$absws" $_WORKSPACES_SYMLINKS_DIR/$id
 }
 #export -f _wksps_create_ws_link
 
@@ -489,7 +494,7 @@ _wksps_remove_ws_link (){
 	log_error "Not a workspace, missing id file: $ws"
 	return
     fi
-    rm -f $CONST_WORKSPACES_CURRENT_DIR/$id
+    rm -f $_WORKSPACES_SYMLINKS_DIR/$id
 }
 #export -f _wksps_remove_ws_link
 
@@ -500,7 +505,7 @@ _wksps_remove_ws_link (){
 _wksps_has_ws_link (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$*")
-    local found=$(ls -l $CONST_WORKSPACES_CURRENT_DIR/ | grep "$absws")
+    local found=$(ls -l $_WORKSPACES_SYMLINKS_DIR/ | grep "$absws")
     [ "$found" != "" ]
 }
 #export -f _wksps_has_ws_link
@@ -560,11 +565,11 @@ _wksps_load_ws (){
     fi
 
     # Setup the environment
-    export WORKSPACE_BASH_ROOT_PID=$$
-    if [ -z "$WORKSPACE_LEVEL" ]; then
-	export WORKSPACE_LEVEL=0
+    export _WORKSPACE_BASH_ROOT_PID=$$
+    if [ -z "$_WORKSPACE_LEVEL" ]; then
+	export _WORKSPACE_LEVEL=0
     else
-	export WORKSPACE_LEVEL=$(($WORKSPACE_LEVEL+1))
+	export _WORKSPACE_LEVEL=$(($_WORKSPACE_LEVEL+1))
     fi
     export WORKSPACE_DIR="$absws"
     export WORKSPACE_TMP_DIR="$wstmpdir"
@@ -572,16 +577,16 @@ _wksps_load_ws (){
     if [ ! -d "$WORKSPACE_TMP_DIR" ]; then
 	mkdir -p "$WORKSPACE_TMP_DIR"
     fi
-    
+
     # Add the current workspace bash shell to the active PID list
-    echo "$WORKSPACE_BASH_ROOT_PID" >> "$pidsfile"
+    echo "$_WORKSPACE_BASH_ROOT_PID" >> "$pidsfile"
 
     # Set things up
     _wksps_load_ws_id "$absws"
     _wksps_load_ws_history "$absws"
 
     # Run the workspaces on_enter hooks
-    for hook in "${WORKSPACES_HOOK_ON_ENTER[@]}"; do
+    for hook in "${_WORKSPACES_HOOK_ON_ENTER[@]}"; do
 	eval "$hook"
     done
 
@@ -595,18 +600,18 @@ _wksps_load_ws (){
 # This function is run from within the workspace temp startup file
 #-------------------------------
 _wksps_set_ws_cleanup_fn (){
-    if [ "$WORKSPACE_TMPFILE" == "" ]; then
-	log_error "No WORKSPACE_TMPFILE variable defined"
+    if [ "$_WORKSPACE_TMPFILE" == "" ]; then
+	log_error "No _WORKSPACE_TMPFILE variable defined"
 	return 1
     fi
 
     # We want to know the pid of the workspace shell from the calling shell
-    echo "export WORKSPACE_BASH_ROOT_PID=$$" > $WORKSPACE_TMPFILE
+    echo "export _WORKSPACE_BASH_ROOT_PID=$$" > $_WORKSPACE_TMPFILE
 
     # Create a results function
-    echo "_wksps_tmp_run_cleanup_fn () {" >> $WORKSPACE_TMPFILE
-    echo "$*" >> $WORKSPACE_TMPFILE
-    echo "}" >> $WORKSPACE_TMPFILE
+    echo "_wksps_tmp_run_cleanup_fn () {" >> $_WORKSPACE_TMPFILE
+    echo "$*" >> $_WORKSPACE_TMPFILE
+    echo "}" >> $_WORKSPACE_TMPFILE
     return 0
 }
 
@@ -623,7 +628,7 @@ _wksps_get_all (){
     local fn
     local ws
     WORKSPACES=()
-    for fn in $CONST_WORKSPACES_CURRENT_DIR/*; do
+    for fn in $_WORKSPACES_SYMLINKS_DIR/*; do
 	if [ -h "$fn" ]; then
 	    ws=$(_wksps_get_tilda_name $(readlink "$fn"))
 	    WORKSPACES[${#WORKSPACES[@]}]="$ws"
@@ -647,16 +652,16 @@ _wksps_push () {
     local currdir=$(pwd)
     local newws=$(readlink -m "$1")
     local unsetlevel=0
-    local savedwstmpfile="$WORKSPACE_TMPFILE"
+    local savedwstmpfile="$_WORKSPACE_TMPFILE"
     local cleanupfn
     shift
     local execcmd="$*"
 
     # Save state of the current environment so we can
     # recover properly after the workspace is popped
-    if [ -z "$WORKSPACE_LEVEL" ]; then
+    if [ -z "$_WORKSPACE_LEVEL" ]; then
 	unsetlevel=1
-	export WORKSPACE_LEVEL=0
+	export _WORKSPACE_LEVEL=0
     fi
 
     # Make sure that we are talking about a workspace
@@ -666,17 +671,17 @@ _wksps_push () {
     fi
 
     # A temporary file for communicating with the new shell workspace
-    export WORKSPACE_TMPFILE=$(mktemp "/tmp/${USER}_tmpws.XXXXXXXXX")
+    export _WORKSPACE_TMPFILE=$(mktemp "/tmp/${USER}_tmpws.XXXXXXXXX")
 
     # Go to the new workspace dir, load the workspace, set a default
     # cleanup function, then source ~/.bashrc. Note: default cleanup
     # is necessary for Ctrl-D (EOF) to exit properly.
-    echo "source ~/.bashrc" > $WORKSPACE_TMPFILE
-    echo "cd \"$newws\"" >> $WORKSPACE_TMPFILE
-    echo "_wksps_load_ws ." >>  $WORKSPACE_TMPFILE
-    echo "_wksps_set_ws_cleanup_fn \"exit\"" >> $WORKSPACE_TMPFILE
+    echo "source ~/.bashrc" > $_WORKSPACE_TMPFILE
+    echo "cd \"$newws\"" >> $_WORKSPACE_TMPFILE
+    echo "_wksps_load_ws ." >>  $_WORKSPACE_TMPFILE
+    echo "_wksps_set_ws_cleanup_fn \"exit\"" >> $_WORKSPACE_TMPFILE
     if [ "$execcmd" != "" ]; then              # the optional command
-	echo "$execcmd" >>  $WORKSPACE_TMPFILE
+	echo "$execcmd" >>  $_WORKSPACE_TMPFILE
     fi
 
 
@@ -690,13 +695,13 @@ _wksps_push () {
     builtin cd "$newws"
 
     # Load and enter the new workspace
-    bash --rcfile $WORKSPACE_TMPFILE
+    bash --rcfile $_WORKSPACE_TMPFILE
 
     # Reload the workspace tmpfile. This defines the cleanup function and
     # the PID of the (now exited) workspace shell.
-    if [ -f "$WORKSPACE_TMPFILE" ]; then
-	source "$WORKSPACE_TMPFILE"
-	rm -f "$WORKSPACE_TMPFILE"
+    if [ -f "$_WORKSPACE_TMPFILE" ]; then
+	source "$_WORKSPACE_TMPFILE"
+	rm -f "$_WORKSPACE_TMPFILE"
     fi
 
     # Remove the PID from the active list in the workspace id file
@@ -708,7 +713,7 @@ _wksps_push () {
     fi
 
     # Finally run any extension hooks
-    for hook in "${WORKSPACES_HOOK_ON_EXIT[@]}"; do
+    for hook in "${_WORKSPACES_HOOK_ON_EXIT[@]}"; do
 	eval "$hook"
     done
 
@@ -716,11 +721,11 @@ _wksps_push () {
     # Recover from the
     unset WORKSPACE_ID
     unset WORKSPACE_DIR
-    unset WORKSPACE_BASH_ROOT_PID
+    unset _WORKSPACE_BASH_ROOT_PID
 
     # Recover from the pop/exit/switch
     if [ $unsetlevel -eq 1 ]; then
-	unset WORKSPACE_LEVEL
+	unset _WORKSPACE_LEVEL
     fi
 
     # Now run the cleanup function
@@ -732,9 +737,9 @@ _wksps_push () {
 
     # The clean up has been performed
     if [ $unsetlevel -eq 1 ]; then
-	unset WORKSPACE_TMPFILE
+	unset _WORKSPACE_TMPFILE
     else
-	export WORKSPACE_TMPFILE="$savedwstmpfile"
+	export _WORKSPACE_TMPFILE="$savedwstmpfile"
     fi
     builtin cd "$currdir"
 }
@@ -745,7 +750,7 @@ _wksps_push () {
 # Only call this directly if you know what you are doing.
 #-------------------------------
 _wksps_pop () {
-    if [ -z "$WORKSPACE_LEVEL" ] || [ $WORKSPACE_LEVEL -eq 0 ]; then
+    if [ -z "$_WORKSPACE_LEVEL" ] || [ $_WORKSPACE_LEVEL -eq 0 ]; then
 	log_error "No loaded workspaces"
 	return 1
     fi
@@ -821,7 +826,7 @@ _wksps_selws_prompt (){
     local prompt="$@"
 
     # Build the list of workspace symlinks that point to valid directories.
-    for fn in $CONST_WORKSPACES_CURRENT_DIR/*; do
+    for fn in $_WORKSPACES_SYMLINKS_DIR/*; do
 	if [ -h "$fn" ] && [ -d "$fn" ] ; then
 	    wrksps_u[${#wrksps_u[@]}]=$(_wksps_get_tilda_name $(readlink "$fn"))
 	fi
@@ -847,6 +852,11 @@ _wksps_selws_prompt (){
 	echo ""
     fi
 }
+
+#-----------------------------------------------------------------------
+# Functions corresponding to archiving
+#-----------------------------------------------------------------------
+
 
 
 #-------------------------------
@@ -1034,7 +1044,7 @@ _wksps_load_if () {
 # point to a valid directory then prompt the user to remove it.
 #---------------------------------
 _wksps_cleanup () {
-    for idfile in $CONST_WORKSPACES_CURRENT_DIR/*; do
+    for idfile in $_WORKSPACES_SYMLINKS_DIR/*; do
 	if [ -h "$idfile" ]; then
 	    local absws=$(readlink -m "$idfile")
 	    local ws=$(_wksps_get_tilda_name "$absws")
@@ -1337,13 +1347,13 @@ wksps_is_subshell () {
 	return 1
     fi
 
-    # if WORKSPACE_BASH_ROOT_PID is not defined then it means that bash shell has been called
-    # but the temporary initialisation file hasn't initialised WORKSPACE_BASH_ROOT_PID. This means
+    # if _WORKSPACE_BASH_ROOT_PID is not defined then it means that bash shell has been called
+    # but the temporary initialisation file hasn't initialised _WORKSPACE_BASH_ROOT_PID. This means
     # that it is a root shell.
-    if [ -z ${WORKSPACE_BASH_ROOT_PID+XXX} ]; then
+    if [ -z ${_WORKSPACE_BASH_ROOT_PID+XXX} ]; then
 	return 1
     fi
-    [ $WORKSPACE_BASH_ROOT_PID != $$ ]
+    [ $_WORKSPACE_BASH_ROOT_PID != $$ ]
 }
 
 #-------------------------------
@@ -1402,7 +1412,7 @@ wksps_hook_on_enter ()
 	log_error "Invalid function callback: $hookname"
 	return 1
     fi
-    WORKSPACES_HOOK_ON_ENTER[${#WORKSPACES_HOOK_ON_ENTER[@]}]=$hookname
+    _WORKSPACES_HOOK_ON_ENTER[${#_WORKSPACES_HOOK_ON_ENTER[@]}]=$hookname
 }
 
 #-------------------------------
@@ -1418,9 +1428,8 @@ wksps_hook_on_exit ()
 	log_error "Invalid function callback: $hookname"
 	return 1
     fi
-    WORKSPACES_HOOK_ON_EXIT[${#WORKSPACES_HOOK_ON_EXIT[@]}]=$hookname
+    _WORKSPACES_HOOK_ON_EXIT[${#_WORKSPACES_HOOK_ON_EXIT[@]}]=$hookname
 }
-
 
 #-------------------------------
 # wksp () [cw|push|pop] <arg>
@@ -1493,9 +1502,10 @@ wscd () {
 # Main - initialisation
 #---------------------------------------------------------------
 
-declare -a WORKSPACES_HOOK_ON_ENTER
-declare -a WORKSPACES_HOOK_ON_EXIT
+declare -a _WORKSPACES_HOOK_ON_ENTER
+declare -a _WORKSPACES_HOOK_ON_EXIT
 
+_wksps_set_env
 
 #---------------------------------------------------------------
 # Register the completion functions
@@ -1504,4 +1514,3 @@ complete -F _wksps_wksp_autocomplete wksp
 complete -F _wksps_ws_autocomplete ws
 complete -o nospace -F _wksps_wsls_autocomplete wsls
 complete -o nospace -F _wksps_wscd_autocomplete wscd
-
