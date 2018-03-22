@@ -166,3 +166,11 @@ mf_is_remote_shell () {
     fi
     return 1
 }
+
+#-------------------------------
+# _mf_is_number
+#-------------------------------
+_mf_is_number() {
+    printf '%f' "$1" &> /dev/null
+}
+
