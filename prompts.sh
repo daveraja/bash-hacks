@@ -6,6 +6,7 @@
 # These functions should be called using the $(...) form, as they return
 # a value.
 #-------------------------------------------------------------------------
+mbimport misc_functions
 
 #----------------------
 # returns 1 if valid answer and 0 otherwise
@@ -78,7 +79,21 @@ prompt_run () {
     local result=$(prompt_yesno "$question" "y")
     if [ "$result" == "y" ]; then
 	$@
+	return $?
     fi
+    return 1
+}
+
+#----------------------------------------------------
+# prompt_input <input>
+# Simple prompt for input
+#----------------------------------------------------
+
+prompt_input (){
+    local question="$*"
+    local answer=""
+    read -p "$question " answer
+    echo $answer
 }
 
 
@@ -89,9 +104,9 @@ prompt_run () {
 # Each choice is numbered. Returns the choice.
 #----------------------------------------------------
 
-_prompt_isnumber() {
-    printf '%f' "$1" &> /dev/null
-}
+#_prompt_isnumber() {
+#    printf '%f' "$1" &> /dev/null
+#}
 
 _prompt_choose() {
     local num_choices=$#
@@ -108,7 +123,7 @@ _prompt_choose() {
 	((i++))
     done
     read -p "Selection: " answr
-    if ! _prompt_isnumber $answr; then
+    if ! mf_is_number $answr; then
 	echo "Invalid selection: $answr" 1>&2
 	echo ""
 	return 0

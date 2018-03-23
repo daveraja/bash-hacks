@@ -291,6 +291,32 @@ _wksps_load_ws_id (){
     return 0
 }
 
+#-------------------------------
+# Given a workspace ID check the symlinks to find the corresponding workspace
+#-------------------------------
+
+_wksps_get_ws_from_link_id (){
+    local id="$*"
+    local link="$_WORKSPACES_SYMLINKS_DIR/$id"
+
+    if [ ! -L "$link" ] || [ ! -d "$link" ]; then
+	log_warn "Missing symlink $link for id: $id"
+	echo ""
+	return 1
+    fi
+    echo $(_wksps_get_abs_name "$link")
+}
+
+_wksps_has_ws_link_id (){
+    local id="$*"
+    local link="$_WORKSPACES_SYMLINKS_DIR/$id"
+
+    if [ -L "$link" ] && [ -d "$link" ]; then
+	return 0
+    fi
+    return 1
+}
+
 
 #-------------------------------
 # _wksps_cleanup_inactive_pids ()
@@ -361,6 +387,18 @@ _wksps_num_active_pids ()
 	fi
     done < "$pidsfile"
     echo "${#activelist[*]}"
+}
+
+#-------------------------------
+# Returns if the workspace is active. Note: we may not be IN this workspace
+#-------------------------------
+_wksps_is_active (){
+    local ws="$*"
+    local num=$(_wksps_num_active_pids "$ws")
+    if [ "$num" != "0" ]; then
+	return 0
+    fi
+    return 1
 }
 
 #------------------------------

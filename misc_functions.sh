@@ -170,7 +170,7 @@ mf_is_remote_shell () {
 #-------------------------------
 # _mf_is_number
 #-------------------------------
-_mf_is_number() {
+mf_is_number() {
     printf '%f' "$1" &> /dev/null
 }
 
