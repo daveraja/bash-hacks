@@ -172,7 +172,7 @@ _wksps_args() {
     local min=$(( $1 + 1 ))
     for var in "$@"; do
 	i=$(( $i + 1 ))
-        if [ $i -gt $min ]; then echo $var; fi
+        if [ "$i" -gt "$min" ]; then echo $var; fi
     done;
 }
 #export -f _wksps_args
@@ -203,7 +203,9 @@ _wksps_get_ws_tmp_dir (){
     local ws="$*"
     local id=$(_wksps_get_ws_id "$ws")
     if [ "$id" == "" ]; then
+	log_debug "_wksps_get_ws_tmp_dir failed: $ws : $id"
 	log_error "Failed to find workspace ID"
+	echo ""
 	return 1
     fi
     echo "$_WORKSPACES_TMP_DIR/$id"
@@ -245,8 +247,12 @@ _wksps_random_id (){
 
 _wksps_get_ws_id (){
     local ws="$*"
+    local absws=$(_wksps_get_abs_name "$ws")
     local id
-    id=$(ls "$ws"/.workspace/id.* 2>/dev/null | head -n 1 | sed -n 's/^.*\.workspace\/id\.\(.*\)$/\1/p')
+    id=$(ls "$absws"/.workspace/id.* 2>/dev/null | head -n 1 | sed -n 's/^.*\.workspace\/id\.\(.*\)$/\1/p')
+    if [ "$id" == "" ]; then
+	log_debug "_wksps_get_ws_id failed: $ws : $absws : $id"
+    fi
     echo "$id"
 }
 
@@ -255,7 +261,14 @@ _wksps_get_ws_id (){
 _wksps_get_ws_pidsfile (){
     local ws="$*"
     local ws_tmp_dir=$(_wksps_get_ws_tmp_dir $ws)
+    if [ "$ws_tmp_dir" == "" ]; then
+	log_debug "_wksps_get_ws_pidsfile failed: $ws : $absws : $ws_tmp_dir"
+	log_error "Failed to get tmp dir for workspace $ws"
+	echo ""
+	return 1
+    fi
     echo "$ws_tmp_dir/pids.tmp"
+    return 0
 }
 
 _wksps_create_ws_id (){
@@ -330,6 +343,11 @@ _wksps_cleanup_inactive_pids (){
     local activelist=()
     local pid
 
+    if [ "$pidsfile" == "" ] || [ "$wstmpdir" == "" ]; then
+	log_error "Failed to get name of tmp dir for workspace $ws"
+	return 1
+    fi
+
     if [ ! -f "$pidsfile" ]; then
 	touch "$pidsfile"
 	return 0
@@ -394,6 +412,7 @@ _wksps_num_active_pids ()
 #-------------------------------
 _wksps_is_active (){
     local ws="$*"
+    ! _wksps_is_ws "$ws" && return 1
     local num=$(_wksps_num_active_pids "$ws")
     if [ "$num" != "0" ]; then
 	return 0
@@ -560,7 +579,6 @@ _wksps_is_ws (){
     local id=$(_wksps_get_ws_id "$absws")
 
     if [ ! -d "$absws" ]; then
-	log_warn "Directory does not exist: $ws"
 	return 1
     fi
 
@@ -572,6 +590,18 @@ _wksps_is_ws (){
     fi
     return 0
 }
+
+_wksps_is_ws_id (){
+    local wsid="$*"
+    local link="$_WORKSPACES_SYMLINKS_DIR/$id"
+    local wsdir=$(readlink -f "$link")
+
+    if [ ! -L "$link" ] ||  [ ! -d "$link" ] || [ "$wsdir" == "" ] ; then
+	return 1
+    fi
+    return _wksps_is_ws "$wsdir"
+}
+
 #export -f _wksps_is_ws
 
 
@@ -762,7 +792,7 @@ _wksps_push () {
     unset _WORKSPACE_BASH_ROOT_PID
 
     # Recover from the pop/exit/switch
-    if [ $unsetlevel -eq 1 ]; then
+    if [ "$unsetlevel" -eq "1" ]; then
 	unset _WORKSPACE_LEVEL
     fi
 
@@ -774,7 +804,7 @@ _wksps_push () {
     fi
 
     # The clean up has been performed
-    if [ $unsetlevel -eq 1 ]; then
+    if [ "$unsetlevel" -eq "1" ]; then
 	unset _WORKSPACE_TMPFILE
     else
 	export _WORKSPACE_TMPFILE="$savedwstmpfile"
@@ -788,7 +818,7 @@ _wksps_push () {
 # Only call this directly if you know what you are doing.
 #-------------------------------
 _wksps_pop () {
-    if [ -z "$_WORKSPACE_LEVEL" ] || [ $_WORKSPACE_LEVEL -eq 0 ]; then
+    if [ -z "$_WORKSPACE_LEVEL" ] || [ "$_WORKSPACE_LEVEL" -eq "0" ]; then
 	log_error "No loaded workspaces"
 	return 1
     fi
@@ -882,7 +912,7 @@ _wksps_selws_prompt (){
     if ! _wksps_isnumber $answr; then
 	echo "error: not a number: $answr" 1>&2
 	echo ""
-    elif [ $answr -gt 0 ] && [ $answr -le ${#wrksps_s[@]} ]; then
+    elif [ "$answr" -gt "0" ] && [ "$answr" -le "${#wrksps_s[@]}" ]; then
 	tmpi=$(( $answr - 1 ))
 	echo "${wrksps_s[$tmpi]}"
     else
@@ -938,7 +968,7 @@ _wksps_mk_prompt (){
 	[Yy]* ) go=1 ;;
 	*) go=0 ;;
     esac
-    if [ $go -eq 1 ]; then
+    if [ "$go" -eq "1" ]; then
 	log_info "Creating workspace: $absws"
 	_wksps_mk "$absws"
 	return 0
@@ -959,7 +989,7 @@ _wksps_chgws () {
     local absws=$(readlink -m "$1")
 
    # No arguments
-    if [ $# -eq 0 ]; then
+    if [ "$#" -eq "0" ]; then
 	if [ "$WORKSPACE_DIR" == "" ]; then
 	    _wksps_chgws_prompt
 	    return 0
@@ -979,7 +1009,7 @@ _wksps_chgws () {
 #	fi
     fi
 
-    if [ $goto_ws -eq 1 ]; then
+    if [ "$goto_ws" -eq "1" ]; then
 	if [ "$WORKSPACE_ID" == "" ]; then                          #  Load new workspace
 	    _wksps_push "$absws" $(_wksps_args 2 "$@")
 	elif [ -f "$absws/.workspace/id.$WORKSPACE_ID" ]; then      # Same workspace so simply cd
@@ -1007,9 +1037,13 @@ _wksps_chgws () {
 #-------------------------------
 _wksps_listws (){
     local ws
+    local absws
+    local wsid
     _wksps_get_all
-    for ws in ${WORKSPACES[@]}; do
-	echo "$ws"
+    for ws in $(for i in ${WORKSPACES[@]}; do echo "$i"; done | sort); do
+	wsid=$(_wksps_get_ws_id "$ws")
+	absws=$(_wksps_get_abs_name "$ws")
+	echo "$absws | $wsid"
     done
 }
 #export -f _wksps_listws
@@ -1231,7 +1265,7 @@ _wksps_wksp_ls_completion (){
     for fn in "$prefix"*; do
 	[ ! -e "$fn" ] && continue
 	[ -d "$fn" ] && fn="$fn/"
-	if [ $removewsdir -eq 1 ]; then
+	if [ "$removewsdir" -eq "1" ]; then
 	    echo $(echo "$fn" | sed -n 's!'"$WORKSPACE_DIR/"'!!p')
 	else
 	    echo "$fn"
@@ -1263,7 +1297,7 @@ _wksps_wksp_cd_completion (){
 	[ ! -e "$fn" ] && continue
 	if [ -d "$fn" ]; then
 	    fn="$fn/"
-	    if [ $removewsdir -eq 1 ]; then
+	    if [ "$removewsdir" -eq "1" ]; then
 		echo $(echo "$fn" | sed -n 's!'"$WORKSPACE_DIR/"'!!p')
 	    else
 		echo "$fn"
@@ -1287,9 +1321,9 @@ _wksps_wksp_autocomplete () {
     cur="${COMP_WORDS[COMP_CWORD]}"
     cmd="${COMP_WORDS[1]}"
     suggestions=""
-    if [ $COMP_CWORD -eq 1 ]; then
+    if [ "$COMP_CWORD" -eq "1" ]; then
 	suggestions="chg sel cfg add del list load unload reload load_if cleanup help ls cd"
-    elif [ $COMP_CWORD -eq 2 ]; then
+    elif [ "$COMP_CWORD" -eq "2" ]; then
 	if [ "$cmd" == "chg" ] || [ "$cmd" == "del" ] || [ "$cmd" == "cfg" ]; then
 	    suggestions=$(_wksps_completion_list "$cur")
 	elif [ "$cmd" == "add" ]; then
@@ -1301,7 +1335,7 @@ _wksps_wksp_autocomplete () {
 	elif [ "$cmd" == "cd" ]; then
 	    suggestions=$(_wksps_wksp_cd_completion "$cur")
 	fi
-    elif [ $COMP_CWORD -eq 3 ] && [ "$cmd" == "ls" ]; then
+    elif [ "$COMP_CWORD" -eq "3" ] && [ "$cmd" == "ls" ]; then
 	suggestions=$(_wksps_wksp_ls_completion "$cur")
     fi
     COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
@@ -1319,7 +1353,7 @@ _wksps_ws_autocomplete () {
 
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    if [ $COMP_CWORD -eq 1 ]; then
+    if [ "$COMP_CWORD" -eq "1" ]; then
 	    suggestions=$(_wksps_completion_list "$cur")
     fi
     COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
@@ -1337,7 +1371,7 @@ _wksps_wsls_autocomplete () {
 
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    if [ $COMP_CWORD -eq 1 ] && ! _wksps_args_is_option "$cur"; then
+    if [ "$COMP_CWORD" -eq "1" ] && ! _wksps_args_is_option "$cur"; then
 	suggestions=$(_wksps_wksp_ls_completion "$cur")
     fi
     COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
@@ -1356,7 +1390,7 @@ _wksps_wscd_autocomplete () {
 
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    if [ $COMP_CWORD -eq 1 ]; then
+    if [ "$COMP_CWORD" -eq "1" ]; then
 	suggestions=$(_wksps_wksp_cd_completion "$cur")
     fi
     COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
