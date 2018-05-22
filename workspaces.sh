@@ -553,7 +553,20 @@ _wksps_remove_ws_link (){
     fi
     rm -f $_WORKSPACES_SYMLINKS_DIR/$id
 }
+
 #export -f _wksps_remove_ws_link
+
+_wksps_remove_ws_link_id (){
+    local id="$*"
+    local idfile=$_WORKSPACES_SYMLINKS_DIR/$id
+
+    if [ ! -L $idfile ]; then
+	log_error "Id $id does not have a link file: $idfile"
+	return
+    fi
+    rm -f $idfile
+}
+
 
 #-------------------------------
 # _wksps_has_ws_link ()
