@@ -29,6 +29,8 @@
 # - WORKSPACES_METADATA_DIR - Where to put the meta-data for the workspaces
 #                             module. Defaults to ~/.workspaces/
 #
+# - WORKSPACES_TMP_DIR - Location for non-workspace specific temporary data
+#
 # Environment variables that can be read by user from within a workspace:
 #
 # - WORKSPACE_DIR - A workspace HOME directory.
@@ -110,7 +112,7 @@ _wksps_set_env (){
 	export WORKSPACES_METADATA_DIR="$HOME/.workspaces"
     fi
     export _WORKSPACES_SYMLINKS_DIR="$WORKSPACES_METADATA_DIR/links"
-    export _WORKSPACES_TMP_DIR="$WORKSPACES_METADATA_DIR/tmp"
+    export WORKSPACES_TMP_DIR="$WORKSPACES_METADATA_DIR/tmp"
 }
 
 #------------------------------
@@ -122,15 +124,15 @@ _wksps_init (){
 	log_info "Creating workspaces metadata directory: $WORKSPACES_METADATA_DIR"
 	mkdir -p "$WORKSPACES_METADATA_DIR"
 	mkdir -p "$_WORKSPACES_SYMLINKS_DIR"
-	mkdir -p "$_WORKSPACES_TMP_DIR"
+	mkdir -p "$WORKSPACES_TMP_DIR"
     fi
     if [ ! -d "$_WORKSPACES_SYMLINKS_DIR" ]; then
 	log_info "Creating workspaces symbolic links directory: $_WORKSPACES_SYMLINKS_DIR"
 	mkdir -p "$_WORKSPACES_SYMLINKS_DIR"
     fi
-    if [ ! -d "$_WORKSPACES_TMP_DIR" ]; then
+    if [ ! -d "$WORKSPACES_TMP_DIR" ]; then
 	log_info "Creating workspaces temp directory: $_WORKSPACES_SYMLINKS_DIR"
-	mkdir -p "$_WORKSPACES_TMP_DIR"
+	mkdir -p "$WORKSPACES_TMP_DIR"
     fi
 }
 
@@ -208,7 +210,7 @@ _wksps_get_ws_tmp_dir (){
 	echo ""
 	return 1
     fi
-    echo "$_WORKSPACES_TMP_DIR/$id"
+    echo "$WORKSPACES_TMP_DIR/$id"
     return 0
 }
 
@@ -339,17 +341,16 @@ _wksps_cleanup_inactive_pids (){
     local ws="$*"
     local absws=$(_wksps_get_abs_name "$ws")
     local pidsfile=$(_wksps_get_ws_pidsfile "$absws")
-    local wstmpdir=$(_wksps_get_ws_tmp_dir "$absws")
     local activelist=()
     local pid
 
-    if [ "$pidsfile" == "" ] || [ "$wstmpdir" == "" ]; then
-	log_error "Failed to get name of tmp dir for workspace $ws"
+    if [ "$pidsfile" == "" ]; then
+	log_error "Failed to get name of processes id file for workspace $ws"
 	return 1
     fi
 
     if [ ! -f "$pidsfile" ]; then
-	touch "$pidsfile"
+#	touch "$pidsfile"
 	return 0
     fi
 
@@ -368,12 +369,36 @@ _wksps_cleanup_inactive_pids (){
 	echo $pid >> "$pidsfile"
     done
 
-    # If the file is empty then remove it and the temporary dir
+    # If the file is empty then remove it
     if [ ! -s "$pidsfile" ]; then
 	rm "$pidsfile"
-	rmdir "$wstmpdir"
     fi
 }
+
+
+
+#-------------------------------
+# _wksps_cleanup_tmpdir()
+# Clean up the of the workspace tmp directory.
+#
+# NOTE:Removed from the cleanup of inactive pids as it should be the last action
+# performed since extensions may use this and the active pids is cleaned up
+# before the extendion hooks are called.
+#-------------------------------
+_wksps_cleanup_tmpdir (){
+    local ws="$*"
+    local absws=$(_wksps_get_abs_name "$ws")
+    local wstmpdir=$(_wksps_get_ws_tmp_dir "$absws")
+
+    if [ "$wstmpdir" == "" ]; then
+	log_error "Failed to get name of tmp dir for workspace $ws"
+	return 1
+    fi
+
+    # If the file is empty then remove it and the temporary dir
+    rmdir "$wstmpdir"
+}
+
 #export -f _wksps_cleanup_inactive_pids
 
 
@@ -405,6 +430,16 @@ _wksps_num_active_pids ()
 	fi
     done < "$pidsfile"
     echo "${#activelist[*]}"
+}
+
+_wksps_has_active_pids ()
+{
+    local ws="$*"
+    local num=$(_wksps_num_active_pids "$ws")
+    if [ "$num" != "0" ]; then
+	return 0
+    fi
+    return 1
 }
 
 #-------------------------------
@@ -766,9 +801,10 @@ _wksps_push () {
     fi
 
 
-    # Set up WORKSPACE_ID  and WORKSPACE_DIR
+    # Set up WORKSPACE_ID, WORKSPACE_DIR, and WORKSPACE_TMP_DIR
     export WORKSPACE_ID=$(_wksps_get_ws_id "$newws")
     export WORKSPACE_DIR="$newws"
+    export WORKSPACE_TMP_DIR=$(_wksps_get_ws_tmp_dir "$newws")
 
     # Make the workspace directory the current directory for the
     # non-workspace parent shell. This will make opening a new
@@ -798,10 +834,15 @@ _wksps_push () {
 	eval "$hook"
     done
 
+    # If this is was the last active then remove the temporary directory
+    if ! _wksps_has_active_pids "$newws" ; then
+	_wksps_cleanup_tmpdir "$newws"
+    fi
 
     # Recover from the
     unset WORKSPACE_ID
     unset WORKSPACE_DIR
+    unset WORKSPACE_TMP_DIR
     unset _WORKSPACE_BASH_ROOT_PID
 
     # Recover from the pop/exit/switch
