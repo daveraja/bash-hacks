@@ -1,9 +1,12 @@
 bash-hacks
 ===========
 
-Some hacks to make life easier in bash. The first hack is to provide a
-script that implements a simple notion of *modules*. This is then used
-to provide useful user modules.
+Bash hacks that I use to manage my workspaces. The first thing it does is
+to provide a script that implements a simple notion of *modules*. This 
+is then used to provide useful modules; and particularly the workspaces
+module. Workspaces make it easy to setup and switch between different
+project environments, for example, changing environment variables, paths,
+and running an emacs server instance per workspace.
 
 Module boostrapping
 -------------------
