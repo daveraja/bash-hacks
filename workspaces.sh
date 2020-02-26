@@ -343,6 +343,7 @@ _wksps_cleanup_inactive_pids (){
     local pidsfile=$(_wksps_get_ws_pidsfile "$absws")
     local activelist=()
     local pid
+    local hasinactive="False"
 
     if [ "$pidsfile" == "" ]; then
 	log_error "Failed to get name of processes id file for workspace $ws"
@@ -359,20 +360,25 @@ _wksps_cleanup_inactive_pids (){
 	    local result=$(ps --no-headers $pid)
 	    if [ "$result" != "" ]; then
 		activelist[${#activelist[*]}]=$pid
+	    else
+		hasinactive="True"
 	    fi
 	fi
     done < "$pidsfile"
 
-    # Now writeout the active list
-    > "$pidsfile"
-    for pid in "${activelist[@]}"; do
-	echo $pid >> "$pidsfile"
-    done
+    # Now writeout the active list if required
+    if [ "$hasinactive" == "True" ] ; then
+	> "$pidsfile"
+	for pid in "${activelist[@]}"; do
+	    echo $pid >> "$pidsfile"
+	done
 
-    # If the file is empty then remove it
-    if [ ! -s "$pidsfile" ]; then
-	rm "$pidsfile"
+	# If the file is empty then remove it
+	if [ ! -s "$pidsfile" ]; then
+	    rm "$pidsfile"
+	fi
     fi
+
 }
 
 
@@ -415,6 +421,10 @@ _wksps_num_active_pids ()
     local activelist=()
     local pid
 
+    # First cleanup any inactive pids
+    _wksps_cleanup_inactive_pids "$ws"
+
+    # Now just need to count the pids in the file
     if [ ! -f "$pidsfile" ]; then
 	echo "0"
 	return 0
@@ -423,10 +433,7 @@ _wksps_num_active_pids ()
     # Read the list of pids - checking against running processes
     while read pid; do
 	if [[ $pid =~ [0-9]+ ]]; then
-	    local result=$(ps --no-headers $pid)
-	    if [ "$result" != "" ]; then
-		activelist[${#activelist[*]}]=$pid
-	    fi
+	    activelist[${#activelist[*]}]=$pid
 	fi
     done < "$pidsfile"
     echo "${#activelist[*]}"
@@ -792,7 +799,9 @@ _wksps_push () {
     # Go to the new workspace dir, load the workspace, set a default
     # cleanup function, then source ~/.bashrc. Note: default cleanup
     # is necessary for Ctrl-D (EOF) to exit properly.
-    echo "source ~/.bashrc" > $_WORKSPACE_TMPFILE
+    echo "[ -f /etc/bash.bashrc ] && source /etc/bash.bashrc" > $_WORKSPACE_TMPFILE
+    echo "[ -f ~/.bashrc ] && source ~/.bashrc" >> $_WORKSPACE_TMPFILE
+#    echo "source ~/.bashrc" > $_WORKSPACE_TMPFILE
     echo "cd \"$newws\"" >> $_WORKSPACE_TMPFILE
     echo "_wksps_load_ws ." >>  $_WORKSPACE_TMPFILE
     echo "_wksps_set_ws_cleanup_fn \"exit\"" >> $_WORKSPACE_TMPFILE
