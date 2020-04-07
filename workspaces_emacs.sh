@@ -218,10 +218,13 @@ wkspe_on_enter(){
     local npids=$(wksps_num_active_pids)
     local server_id=$(_wkspe_get_server_name)
 
-    # First process - if there is an emacs socket it means that the workspace
-    # wasn't previously cleaned up properly - so delete the socket.
+    # Check for a valid emacs server
     if _wkspe_server_isrunning ; then
-	log_warn "It appears that an Emacs server is already running for this workspace"
+	# If this was the first process then a previous server wasn't shutdown
+	# properly. But still seems to be valid
+	if [ $npids -eq 1 ]; then
+	    log_warn "It appears that an Emacs server is already running for this workspace"
+	fi
     fi
     export EDITOR=wkspe_emacsclient
 
