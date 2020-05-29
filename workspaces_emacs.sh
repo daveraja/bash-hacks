@@ -37,7 +37,6 @@ mbimport logging
 # name of emacs server when not in workspace
 export GLOBAL_EMACS_SERVER_ID="${WORKSPACES_TMP_DIR}/eserver_global"
 
-export WORKSPACE_EMACS_SERVER_ID=$(_wkspe_get_server_name)
 #------------------------------
 # validate_ws - If a workspace is loaded then do nothing, otherwise
 # set the WORKSPACE_ID to a global value
