@@ -45,7 +45,7 @@ _wkspe_get_server_name(){
     if wksps_is_loaded ; then
 	echo "${WORKSPACE_TMP_DIR}/eserver_${WORKSPACE_ID}"
     else
-	echo "$GLOBAL_EMACS_SERVER_ID"
+	echo "${WORKSPACES_TMP_DIR}/eserver_global"
     fi
     return 0
 }
@@ -304,6 +304,12 @@ _wkspe_emacsclient_ediff_autocomplete () {
     COMPREPLY=( $(compgen -W "${suggestions}" -- ${cur}) )
     return 0
 }
+
+#-----------------------------------------------------------------------
+# Export the emacs server id
+#-----------------------------------------------------------------------
+
+export WORKSPACE_EMACS_SERVER_ID=$(_wkspe_get_server_name)
 
 #-----------------------------------------------------------------------
 # Main - Setup the workspace callback for on_enter and on_exit.
